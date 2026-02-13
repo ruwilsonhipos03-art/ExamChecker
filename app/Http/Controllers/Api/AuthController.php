@@ -9,9 +9,39 @@ use App\Models\User;
 use App\Models\ExamSchedule;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class AuthController extends Controller
 {
+    private const TOKEN_TTL_MINUTES = 10;
+
+    private function generateSixDigitCode(): string
+    {
+        return str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+    }
+
+    private function storeEmailToken(string $table, string $email, string $code): void
+    {
+        DB::table($table)->updateOrInsert(
+            ['email' => $email],
+            ['token' => Hash::make($code), 'created_at' => now()]
+        );
+    }
+
+    private function validateEmailToken(string $table, string $email, string $code): bool
+    {
+        $record = DB::table($table)->where('email', $email)->first();
+        if (!$record) {
+            return false;
+        }
+
+        $createdAt = $record->created_at ? \Carbon\Carbon::parse($record->created_at) : null;
+        if (!$createdAt || $createdAt->diffInMinutes(now()) > self::TOKEN_TTL_MINUTES) {
+            return false;
+        }
+
+        return Hash::check($code, $record->token);
+    }
     /**
      * Handle user login and token generation
      */
@@ -145,5 +175,71 @@ class AuthController extends Controller
                 'message' => $e->getMessage()
             ], 422);
         }
+    }
+
+    public function sendEmailVerificationCode(Request $request)
+    {
+        $user = $request->user();
+        $code = $this->generateSixDigitCode();
+
+        $this->storeEmailToken('email_verification_tokens', $user->email, $code);
+
+        Mail::raw("Your verification code is: {$code}\nThis code expires in " . self::TOKEN_TTL_MINUTES . " minutes.", function ($message) use ($user) {
+            $message->to($user->email)->subject('Email Verification Code');
+        });
+
+        return response()->json(['status' => 'success', 'message' => 'Verification code sent.']);
+    }
+
+    public function verifyEmailCode(Request $request)
+    {
+        $validated = $request->validate([
+            'code' => 'required|string|size:6',
+        ]);
+
+        $user = $request->user();
+        if (!$this->validateEmailToken('email_verification_tokens', $user->email, $validated['code'])) {
+            return response()->json(['status' => 'error', 'message' => 'Invalid or expired code.'], 422);
+        }
+
+        $user->update(['email_verified_at' => now()]);
+        DB::table('email_verification_tokens')->where('email', $user->email)->delete();
+
+        return response()->json(['status' => 'success', 'message' => 'Email verified successfully.']);
+    }
+
+    public function sendForgotPasswordCode(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => 'required|email|exists:users,email',
+        ]);
+
+        $code = $this->generateSixDigitCode();
+        $this->storeEmailToken('password_reset_tokens', $validated['email'], $code);
+
+        Mail::raw("Your password reset code is: {$code}\nThis code expires in " . self::TOKEN_TTL_MINUTES . " minutes.", function ($message) use ($validated) {
+            $message->to($validated['email'])->subject('Password Reset Code');
+        });
+
+        return response()->json(['status' => 'success', 'message' => 'Reset code sent.']);
+    }
+
+    public function resetPasswordWithCode(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => 'required|email|exists:users,email',
+            'code' => 'required|string|size:6',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        if (!$this->validateEmailToken('password_reset_tokens', $validated['email'], $validated['code'])) {
+            return response()->json(['status' => 'error', 'message' => 'Invalid or expired code.'], 422);
+        }
+
+        $user = User::where('email', $validated['email'])->firstOrFail();
+        $user->update(['password' => Hash::make($validated['password'])]);
+        DB::table('password_reset_tokens')->where('email', $validated['email'])->delete();
+
+        return response()->json(['status' => 'success', 'message' => 'Password reset successfully.']);
     }
 }

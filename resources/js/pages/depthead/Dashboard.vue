@@ -66,25 +66,46 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import axios from 'axios';
+import Swal from 'sweetalert2';
 
 const currentTime = ref('');
 
-// Updated to reflect Program Head metrics
-const stats = [
-    { label: 'Total Students', value: '1,247', icon: 'bi-people-fill', colorClass: 'bg-emerald-light text-emerald' },
-    { label: 'Exams Completed', value: '156', icon: 'bi-check-circle-fill', colorClass: 'bg-emerald-light text-emerald' },
-    { label: 'Pending Reviews', value: '23', icon: 'bi-clock-fill', colorClass: 'bg-warning-subtle text-warning' },
-    { label: 'Active Subjects', value: '12', icon: 'bi-book-fill', colorClass: 'bg-info-subtle text-info' }
-];
+const stats = ref([
+    { label: 'Exams Created', value: '0', icon: 'bi-file-earmark-plus-fill', colorClass: 'bg-emerald-light text-emerald' },
+    { label: 'Total Examinees', value: '0', icon: 'bi-people-fill', colorClass: 'bg-emerald-light text-emerald' },
+    { label: 'Subjects', value: '0', icon: 'bi-book-fill', colorClass: 'bg-info-subtle text-info' },
+    { label: 'Passing Rate', value: '0%', icon: 'bi-graph-up-arrow', colorClass: 'bg-warning-subtle text-warning' }
+]);
 
 const activities = [
     { id: 1, title: 'Entrance Exam - Batch 2024 generated', time: '2 hours ago', icon: 'bi-file-earmark-check' },
     { id: 2, title: '45 new students enrolled', time: '5 hours ago', icon: 'bi-person-plus' }
 ];
 
+const loadStats = async () => {
+    try {
+        const { data } = await axios.get('/api/dept_head/dashboard/stats');
+        stats.value = [
+            { label: 'Exams Created', value: Number(data.exams_created || 0).toLocaleString(), icon: 'bi-file-earmark-plus-fill', colorClass: 'bg-emerald-light text-emerald' },
+            { label: 'Total Examinees', value: Number(data.total_examinees || 0).toLocaleString(), icon: 'bi-people-fill', colorClass: 'bg-emerald-light text-emerald' },
+            { label: 'Subjects', value: Number(data.subjects || 0).toLocaleString(), icon: 'bi-book-fill', colorClass: 'bg-info-subtle text-info' },
+            { label: 'Passing Rate', value: `${Number(data.passing_rate || 0).toFixed(2)}%`, icon: 'bi-graph-up-arrow', colorClass: 'bg-warning-subtle text-warning' }
+        ];
+    } catch (error) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Failed to load dashboard stats',
+            text: 'Please try refreshing the page.',
+            confirmButtonColor: '#ef4444'
+        });
+    }
+};
+
 onMounted(() => {
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     currentTime.value = new Date().toLocaleDateString(undefined, options);
+    loadStats();
 });
 </script>
 

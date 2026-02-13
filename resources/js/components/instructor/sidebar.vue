@@ -27,7 +27,7 @@
                     :class="{ 'active': isNormalOpen && !isCollapsed }">
                     <div class="d-flex align-items-center gap-3">
                         <i class="bi bi-journal-text"></i>
-                        <span v-if="!isCollapsed">Normal Exams</span>
+                        <span v-if="!isCollapsed">Term Exams</span>
                     </div>
                     <i v-if="!isCollapsed" class="bi bi-chevron-down ms-auto arrow"
                         :class="{ 'rotate': isNormalOpen }"></i>
@@ -41,7 +41,7 @@
                     <router-link to="/instructor/keys" class="sub-item">
                         <i class="bi bi-key-fill"></i> Answer Key
                     </router-link>
-                    <router-link to="/instructor/sheets" class="sub-item">
+                    <router-link to="/instructor/generate" class="sub-item">
                         <i class="bi bi-file-earmark-plus-fill"></i> Generate Sheet
                     </router-link>
                     <router-link to="/instructor/reports" class="sub-item">
@@ -62,7 +62,6 @@ const isNormalOpen = ref(false);
 
 const toggleNormal = () => {
     isNormalOpen.value = !isNormalOpen.value;
-    if (isNormalOpen.value) isEntranceOpen.value = false; // Close other dropdown
 };
 </script>
 

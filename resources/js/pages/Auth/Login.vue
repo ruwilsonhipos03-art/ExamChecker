@@ -94,17 +94,18 @@ const handleLogin = async () => {
         // 4. Success Feedback using the names from your migration
         const fullName = `${user.first_name} ${user.last_name}`;
 
-        if (window.Toast) {
-            window.Toast.fire({
-                icon: 'success',
-                title: `Welcome back, ${user.first_name}!`
-            });
-        }
+
 
         // 5. Role-based Redirection
         const targetPath = roleRoutes[user.role];
 
         if (targetPath) {
+            if (window.Toast) {
+                window.Toast.fire({
+                    icon: 'success',
+                    title: `Welcome back, ${user.first_name}!`
+                });
+            }
             router.push(targetPath);
         } else {
             console.error('Unknown role encountered:', user.role);

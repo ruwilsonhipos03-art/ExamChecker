@@ -64,7 +64,12 @@ const userInitials = computed(() => {
     return (first + last).toUpperCase() || '?';
 });
 
-// Logout logic we discussed earlier
+const clearLocalSession = () => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user_data');
+    delete axios.defaults.headers.common['Authorization'];
+};
+
 const handleLogout = async () => {
     const result = await window.Swal.fire({
         title: 'Logout?',
@@ -76,17 +81,15 @@ const handleLogout = async () => {
     });
 
     if (result.isConfirmed) {
-        try {
-            await axios.post('/api/logout');
-        } catch (error) {
-            console.error("Logout API failed:", error);
-        } finally {
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('user_data');
-            delete axios.defaults.headers.common['Authorization'];
-            router.push('/login');
-            window.Toast.fire({ icon: 'success', title: 'Signed out' });
-        }
+        window.Swal.close();
+        clearLocalSession();
+        await router.push('/login');
+        window.Toast.fire({ icon: 'success', title: 'Signed out' });
+
+        // Fire-and-forget backend revoke so UI logout is instant.
+        axios.post('/api/logout').catch((error) => {
+            console.error('Logout API failed:', error);
+        });
     }
 };
 </script>
