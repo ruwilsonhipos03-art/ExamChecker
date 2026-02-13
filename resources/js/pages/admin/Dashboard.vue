@@ -2,7 +2,7 @@
     <div class="dashboard-container">
         <div class="content-header mb-4 d-flex justify-content-between align-items-end">
             <div>
-                <h1 class="fw-bold text-dark">Welcome back, John! 👋</h1>
+                <h1 class="fw-bold text-dark">Welcome back, {{ firstName }}!</h1>
                 <p class="text-muted mb-0">Here's what's happening today.</p>
             </div>
 
@@ -29,20 +29,71 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
+import axios from 'axios';
+import Swal from 'sweetalert2';
 
 const currentTime = ref('');
+const firstName = ref('Admin');
+let statsRefreshTimer = null;
 
-const stats = [
-    { label: 'Total Employees', value: '248', icon: 'bi-people-fill', colorClass: 'bg-emerald-light text-emerald' },
-    { label: 'Departments', value: '12', icon: 'bi-building-fill', colorClass: 'bg-emerald-light text-emerald' },
-    { label: 'Active Programs', value: '36', icon: 'bi-journal-bookmark-fill', colorClass: 'bg-emerald-light text-emerald' },
-    { label: 'Scheduled Classes', value: '156', icon: 'bi-calendar-check-fill', colorClass: 'bg-emerald-light text-emerald' }
-];
+const stats = ref([
+    { label: 'Total Employees', value: '0', icon: 'bi-people-fill', colorClass: 'bg-emerald-light text-emerald' },
+    { label: 'Total Students', value: '0', icon: 'bi-person-badge-fill', colorClass: 'bg-emerald-light text-emerald' },
+    { label: 'Departments', value: '0', icon: 'bi-building-fill', colorClass: 'bg-emerald-light text-emerald' },
+    { label: 'Programs', value: '0', icon: 'bi-journal-bookmark-fill', colorClass: 'bg-emerald-light text-emerald' }
+]);
+
+const normalizeCount = (payload, ...keys) => {
+    for (const key of keys) {
+        const value = payload?.[key];
+        const parsed = Number(value);
+
+        if (Number.isFinite(parsed)) {
+            return parsed.toLocaleString();
+        }
+    }
+
+    return '0';
+};
+
+const loadStats = async () => {
+    try {
+        const { data } = await axios.get('/api/admin/dashboard/stats');
+        stats.value = [
+            { label: 'Total Employees', value: normalizeCount(data, 'total_employees', 'employees'), icon: 'bi-people-fill', colorClass: 'bg-emerald-light text-emerald' },
+            { label: 'Total Students', value: normalizeCount(data, 'total_students', 'students'), icon: 'bi-person-badge-fill', colorClass: 'bg-emerald-light text-emerald' },
+            { label: 'Departments', value: normalizeCount(data, 'departments', 'total_departments'), icon: 'bi-building-fill', colorClass: 'bg-emerald-light text-emerald' },
+            { label: 'Programs', value: normalizeCount(data, 'programs', 'total_programs'), icon: 'bi-journal-bookmark-fill', colorClass: 'bg-emerald-light text-emerald' }
+        ];
+    } catch (error) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Failed to load dashboard stats',
+            text: 'Please try refreshing the page.',
+            confirmButtonColor: '#ef4444'
+        });
+    }
+};
 
 onMounted(() => {
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     currentTime.value = new Date().toLocaleDateString(undefined, options);
+
+    const savedUser = localStorage.getItem('user_data');
+    if (savedUser) {
+        const parsedUser = JSON.parse(savedUser);
+        firstName.value = parsedUser?.first_name || 'Admin';
+    }
+
+    loadStats();
+    statsRefreshTimer = setInterval(loadStats, 30000);
+});
+
+onBeforeUnmount(() => {
+    if (statsRefreshTimer) {
+        clearInterval(statsRefreshTimer);
+    }
 });
 </script>
 

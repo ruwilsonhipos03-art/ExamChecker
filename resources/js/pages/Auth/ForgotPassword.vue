@@ -48,6 +48,15 @@
                         </div>
                     </div>
 
+                    <div class="mb-3 text-start">
+                        <label class="form-label small fw-bold text-secondary text-uppercase">New Password</label>
+                        <input v-model="newPassword" type="password" class="form-control" required>
+                    </div>
+                    <div class="mb-4 text-start">
+                        <label class="form-label small fw-bold text-secondary text-uppercase">Confirm Password</label>
+                        <input v-model="confirmPassword" type="password" class="form-control" required>
+                    </div>
+
                     <button @click="handleVerifyCode" class="btn btn-emerald w-100 py-2 fw-bold mb-3">
                         VERIFY & RESET
                     </button>
@@ -69,10 +78,14 @@
 
 <script setup>
 import { ref, reactive, computed, onUnmounted, nextTick } from 'vue';
+import axios from 'axios';
+import Swal from 'sweetalert2';
 
 const email = ref('');
 const isCodeSent = ref(false);
 const otp = reactive(['', '', '', '', '', '']);
+const newPassword = ref('');
+const confirmPassword = ref('');
 const otpFields = ref([]); // Stores references to the input elements
 const timer = ref(0);
 let interval = null;
@@ -92,18 +105,34 @@ const startTimer = () => {
     }, 1000);
 };
 
-const handleSendCode = () => {
-    if (email.value) {
+const handleSendCode = async () => {
+    if (!email.value) return;
+    try {
+        await axios.post('/api/forgot-password/send-code', { email: email.value });
         isCodeSent.value = true;
         startTimer();
-        // Focus first box after UI updates
         nextTick(() => otpFields.value[0]?.focus());
+        Swal.fire({
+            icon: 'success',
+            title: 'Code Sent',
+            text: 'Please check your email for the 6-digit code.',
+            confirmButtonColor: '#10b981'
+        });
+    } catch (e) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Failed',
+            text: e.response?.data?.message || 'Unable to send code.',
+            confirmButtonColor: '#10b981'
+        });
     }
 };
 
 const goBack = () => {
     isCodeSent.value = false;
     otp.fill(''); // Clear code if they go back
+    newPassword.value = '';
+    confirmPassword.value = '';
 };
 
 // AUTO-ADVANCE & NUMERIC FILTER
@@ -130,12 +159,61 @@ const handleDelete = (index) => {
     }
 };
 
-const handleVerifyCode = () => {
+const handleVerifyCode = async () => {
     const code = otp.join('');
-    if (code.length === 6) {
-        alert('Verifying code: ' + code);
-    } else {
-        alert('Please complete the 6-digit code.');
+    if (code.length !== 6) {
+        return Swal.fire({
+            icon: 'warning',
+            title: 'Incomplete Code',
+            text: 'Please complete the 6-digit code.',
+            confirmButtonColor: '#10b981'
+        });
+    }
+
+    if (newPassword.value.length < 8) {
+        return Swal.fire({
+            icon: 'warning',
+            title: 'Weak Password',
+            text: 'Password must be at least 8 characters.',
+            confirmButtonColor: '#10b981'
+        });
+    }
+
+    if (newPassword.value !== confirmPassword.value) {
+        return Swal.fire({
+            icon: 'warning',
+            title: 'Mismatch',
+            text: 'Passwords do not match.',
+            confirmButtonColor: '#10b981'
+        });
+    }
+
+    try {
+        await axios.post('/api/forgot-password/reset', {
+            email: email.value,
+            code,
+            password: newPassword.value,
+            password_confirmation: confirmPassword.value
+        });
+
+        Swal.fire({
+            icon: 'success',
+            title: 'Password Updated',
+            text: 'You can now log in with your new password.',
+            confirmButtonColor: '#10b981'
+        });
+
+        isCodeSent.value = false;
+        otp.fill('');
+        newPassword.value = '';
+        confirmPassword.value = '';
+    } catch (e) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Reset Failed',
+            text: e.response?.data?.message || 'Invalid or expired code.',
+            confirmButtonColor: '#10b981'
+        });
     }
 };
 

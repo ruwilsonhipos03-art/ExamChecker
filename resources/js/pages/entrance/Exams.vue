@@ -19,7 +19,7 @@
         <div class="card shadow-sm border-0">
             <div class="card-body p-0">
                 <div class="px-4 py-3 border-bottom bg-light">
-                    <div class="input-group input-group-sm w-25">
+                    <div class="input-group input-group-sm w-50 w-md-25">
                         <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
                         <input type="text" v-model="searchQuery" class="form-control border-start-0 ps-0"
                             placeholder="Search by title or type...">
@@ -39,7 +39,7 @@
                         </thead>
                         <tbody>
                             <tr v-if="isLoading">
-                                <td colspan="5" class="text-center py-5">
+                                <td colspan="6" class="text-center py-5">
                                     <div class="spinner-border text-emerald" role="status"></div>
                                 </td>
                             </tr>
@@ -91,7 +91,7 @@
         </div>
 
         <div class="modal fade" id="examModal" tabindex="-1" ref="modalRef">
-            <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
                 <div class="modal-content border-0 shadow">
                     <div class="modal-header bg-emerald text-white border-0">
                         <h5 class="modal-title fw-bold">{{ editMode ? 'Modify Exam Set' : 'Create New Exam Set' }}</h5>
@@ -103,13 +103,7 @@
                                 <label class="form-label small fw-bold text-secondary">EXAM TITLE</label>
                                 <input v-model="form.Exam_Title" type="text" class="form-control border-2" required>
                             </div>
-                            <div class="mb-3">
-                                <label class="form-label small fw-bold text-secondary">EXAM TYPE/CATEGORY</label>
-                                <select v-model="form.Exam_Type" class="form-select border-2" required>
-                                    <option value="" disabled>Select Category</option>
-                                    <option value="Entrance">Entrance</option>
-                                </select>
-                            </div>
+
                         </div>
                         <div class="modal-footer border-0 p-4 pt-0">
                             <button type="button" class="btn btn-light fw-bold" data-bs-dismiss="modal">CANCEL</button>
@@ -139,12 +133,21 @@ let modalInstance = null;
 const isLoading = ref(false);
 const isSaving = ref(false);
 const deletingId = ref(null);
+const EXAM_TYPE_ALIASES = ['entrance', 'screening', 'screening exam'];
 
-const form = reactive({ Exam_Title: '', Exam_Type: '' });
+const form = reactive({ Exam_Title: '', Exam_Type: 'Entrance' });
+
+const resetForm = () => {
+    form.Exam_Title = '';
+    form.Exam_Type = 'Entrance';
+};
 
 const filteredExams = computed(() => {
     const data = Array.isArray(exams.value) ? exams.value : [];
-    return data.filter(e => {
+    const allowed = data.filter((exam) =>
+        EXAM_TYPE_ALIASES.includes(String(exam?.Exam_Type || '').trim().toLowerCase())
+    );
+    return allowed.filter(e => {
         const title = (e.Exam_Title || '').toLowerCase();
         const type = (e.Exam_Type || '').toLowerCase();
         return title.includes(searchQuery.value.toLowerCase()) || type.includes(searchQuery.value.toLowerCase());
@@ -154,8 +157,8 @@ const filteredExams = computed(() => {
 const fetchExams = async () => {
     isLoading.value = true;
     try {
-        const res = await axios.get('/api/exams');
-        exams.value = Array.isArray(res.data) ? res.data : [];
+        const examsRes = await axios.get('/api/exams');
+        exams.value = Array.isArray(examsRes.data) ? examsRes.data : [];
     } catch (e) {
         exams.value = [];
     } finally {
@@ -164,26 +167,31 @@ const fetchExams = async () => {
 };
 
 const openModal = (exam = null) => {
+    resetForm();
     editMode.value = !!exam;
     currentId.value = exam?.id || null;
     form.Exam_Title = exam?.Exam_Title || '';
-    form.Exam_Type = exam?.Exam_Type || '';
+    form.Exam_Type = exam?.Exam_Type || 'Entrance';
     modalInstance.show();
 };
 
 const saveExam = async () => {
     isSaving.value = true;
     try {
+        const payload = {
+            Exam_Title: form.Exam_Title,
+            Exam_Type: form.Exam_Type,
+        };
         if (editMode.value) {
-            await axios.put(`/api/exams/${currentId.value}`, form);
+            await axios.put(`/api/exams/${currentId.value}`, payload);
         } else {
-            await axios.post('/api/exams', form);
+            await axios.post('/api/exams', payload);
         }
         modalInstance.hide();
         await fetchExams();
-        window.Toast.fire({ icon: 'success', title: 'Data synced!' });
+        window.Toast?.fire({ icon: 'success', title: 'Data synced!' });
     } catch (e) {
-        window.Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to save.' });
+        window.Swal?.fire({ icon: 'error', title: 'Error', text: 'Failed to save.' });
     } finally {
         isSaving.value = false;
     }

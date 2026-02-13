@@ -5,7 +5,7 @@
                 <div class="row align-items-center">
                     <div class="col">
                         <h4 class="fw-bold mb-1">Department Head Workspace</h4>
-                        <p class="text-indigo-100 small mb-0">Manage your personal examination standards and sets</p>
+                        <p class="text-indigo-100 small mb-0">Manage screening examination sets</p>
                     </div>
                     <div class="col-auto">
                         <button @click="openModal()" class="btn btn-light fw-bold px-4 shadow-sm text-indigo-700">
@@ -19,7 +19,7 @@
         <div class="card shadow-sm border-0">
             <div class="card-body p-0">
                 <div class="px-4 py-3 border-bottom bg-light">
-                    <div class="input-group input-group-sm w-25">
+                    <div class="input-group input-group-sm w-50 w-md-25">
                         <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
                         <input type="text" v-model="searchQuery" class="form-control border-start-0 ps-0"
                             placeholder="Search my sets...">
@@ -39,7 +39,7 @@
                         </thead>
                         <tbody>
                             <tr v-if="isLoading">
-                                <td colspan="5" class="text-center py-5">
+                                <td colspan="6" class="text-center py-5">
                                     <div class="spinner-border text-indigo" role="status"></div>
                                 </td>
                             </tr>
@@ -87,7 +87,7 @@
         </div>
 
         <div class="modal fade" id="examModal" tabindex="-1" ref="modalRef">
-            <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
                 <div class="modal-content border-0 shadow-lg">
                     <div class="modal-header bg-indigo-700 text-white border-0">
                         <h5 class="modal-title fw-bold">{{ editMode ? 'Update Exam Set' : 'Configure New Exam' }}</h5>
@@ -99,14 +99,6 @@
                                 <label class="form-label small fw-bold text-secondary text-uppercase">Title of
                                     Examination</label>
                                 <input v-model="form.Exam_Title" type="text" class="form-control border-2" required>
-                            </div>
-                            <div class="mb-3">
-                                <label
-                                    class="form-label small fw-bold text-secondary text-uppercase">Classification</label>
-                                <select v-model="form.Exam_Type" class="form-select border-2" required>
-                                    <option value="Entrance">Entrance</option>
-                                    <option value="Departmental">Departmental</option>
-                                </select>
                             </div>
                         </div>
                         <div class="modal-footer border-0 p-4 pt-0">
@@ -128,7 +120,6 @@ import { ref, onMounted, reactive, computed } from 'vue';
 import axios from 'axios';
 import { Modal } from 'bootstrap';
 
-// State
 const exams = ref([]);
 const searchQuery = ref('');
 const editMode = ref(false);
@@ -139,12 +130,20 @@ let modalInstance = null;
 const isLoading = ref(false);
 const isSaving = ref(false);
 const deletingId = ref(null);
+const EXAM_TYPE_ALIASES = ['entrance', 'screening', 'screening exam'];
 
-const form = reactive({ Exam_Title: '', Exam_Type: 'Entrance' });
+const form = reactive({ Exam_Title: '', Exam_Type: 'Screening' });
 
-// Methods
+const resetForm = () => {
+    form.Exam_Title = '';
+    form.Exam_Type = 'Screening';
+};
+
 const filteredExams = computed(() => {
-    return (exams.value || []).filter(e =>
+    const list = (exams.value || []).filter(exam =>
+        EXAM_TYPE_ALIASES.includes(String(exam?.Exam_Type || '').trim().toLowerCase())
+    );
+    return list.filter(e =>
         e.Exam_Title.toLowerCase().includes(searchQuery.value.toLowerCase())
     );
 });
@@ -152,21 +151,21 @@ const filteredExams = computed(() => {
 const fetchExams = async () => {
     isLoading.value = true;
     try {
-        // Calls the shared unified endpoint
-        const res = await axios.get('/api/exams');
-        exams.value = res.data;
+        const examsRes = await axios.get('/api/exams');
+        exams.value = Array.isArray(examsRes.data) ? examsRes.data : [];
     } catch (e) {
-        console.error("Fetch failed", e);
+        exams.value = [];
     } finally {
         isLoading.value = false;
     }
 };
 
 const openModal = (exam = null) => {
+    resetForm();
     editMode.value = !!exam;
     currentId.value = exam?.id || null;
     form.Exam_Title = exam?.Exam_Title || '';
-    form.Exam_Type = exam?.Exam_Type || 'Entrance';
+    form.Exam_Type = exam?.Exam_Type || 'Screening';
     modalInstance.show();
 };
 
@@ -176,7 +175,11 @@ const saveExam = async () => {
     const method = editMode.value ? 'put' : 'post';
 
     try {
-        await axios[method](url, form);
+        const payload = {
+            Exam_Title: form.Exam_Title,
+            Exam_Type: form.Exam_Type,
+        };
+        await axios[method](url, payload);
         modalInstance.hide();
         await fetchExams();
         window.Toast.fire({ icon: 'success', title: 'Department records updated!' });
@@ -214,7 +217,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Indigo Theme Palette */
 .bg-indigo-700 {
     background-color: #4338ca;
 }

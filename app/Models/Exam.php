@@ -16,4 +16,19 @@ class Exam extends Model
     {
         return $this->belongsTo(Employee::class, 'created_by');
     }
+
+    public function answerKeys()
+    {
+        return $this->hasMany(AnswerKey::class);
+    }
+
+    public function examSubject()
+    {
+        return $this->hasMany(ExamSubject::class);
+    }
+
+    public function examSubjects()
+    {
+        return $this->hasMany(ExamSubject::class);
+    }
 }

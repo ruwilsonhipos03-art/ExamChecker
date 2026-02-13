@@ -11,7 +11,50 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 // SweetAlert2 Setup
 import Swal from 'sweetalert2';
 
-// 1. Create a Global Toast instance
+// --- AUTH LOGIC START ---
+
+// 1. Configure Axios Defaults
+window.axios = axios;
+window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+
+/**
+ * Helper to manage the token
+ */
+const setAuthHeader = (token) => {
+    if (token) {
+        window.axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    } else {
+        delete window.axios.defaults.headers.common['Authorization'];
+    }
+};
+
+// 2. Load token from LocalStorage immediately on page refresh
+const savedToken = localStorage.getItem('auth_token');
+if (savedToken) {
+    setAuthHeader(savedToken);
+}
+
+// 3. Global Interceptor to handle session expiration (401)
+window.axios.interceptors.response.use(
+    response => response,
+    error => {
+        if (error.response && error.response.status === 401) {
+            // Token is invalid or expired
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('user_data');
+            setAuthHeader(null);
+            // Only redirect if we aren't already on the login page to avoid loops
+            if (window.location.pathname !== '/login') {
+                window.location.href = '/login';
+            }
+        }
+        return Promise.reject(error);
+    }
+);
+
+// --- AUTH LOGIC END ---
+
+// Global Toast instance
 const Toast = Swal.mixin({
     toast: true,
     position: 'top-end',
@@ -24,51 +67,11 @@ const Toast = Swal.mixin({
     }
 });
 
-// 2. Attach to window object
+// Attach to window object
 window.Swal = Swal;
 window.Toast = Toast;
 
-// --- 3. Axios Global Configuration ---
-axios.defaults.baseURL = 'http://localhost:8000'; // Ensure this matches your Laravel URL
-axios.defaults.headers.common['Accept'] = 'application/json';
-axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
-
-// 4. Request Interceptor: Attach token to every outgoing request
-axios.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('auth_token');
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
-    }
-);
-
-// 5. Response Interceptor: Handle session expiration (401)
-axios.interceptors.response.use(
-    (response) => response,
-    (error) => {
-        if (error.response && error.response.status === 401) {
-            // Token is invalid or expired
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('user_data');
-            
-            // Only redirect if we aren't already on the login page
-            if (window.location.pathname !== '/login') {
-                window.location.href = '/login';
-            }
-        }
-        return Promise.reject(error);
-    }
-);
-
 const app = createApp(App);
-
-// Global property for axios (optional, allows this.$http in Options API)
-app.config.globalProperties.$http = axios;
 
 app.use(router);
 app.mount('#app');

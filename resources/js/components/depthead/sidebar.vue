@@ -54,7 +54,7 @@
                     :class="{ 'active': isNormalOpen && !isCollapsed }">
                     <div class="d-flex align-items-center gap-3">
                         <i class="bi bi-journal-text"></i>
-                        <span v-if="!isCollapsed">Normal Exams</span>
+                        <span v-if="!isCollapsed">Term Exams</span>
                     </div>
                     <i v-if="!isCollapsed" class="bi bi-chevron-down ms-auto arrow"
                         :class="{ 'rotate': isNormalOpen }"></i>
