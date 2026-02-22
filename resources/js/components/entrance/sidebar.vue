@@ -15,6 +15,11 @@
                 <span v-if="!isCollapsed">Students</span>
             </router-link>
 
+            <router-link to="/entrance/program-requirements" class="nav-item">
+                <i class="bi bi-list-check"></i>
+                <span v-if="!isCollapsed">Program Requirements</span>
+            </router-link>
+
             <div class="section-label" v-if="!isCollapsed">EXAMS</div>
 
             <div class="nav-group">

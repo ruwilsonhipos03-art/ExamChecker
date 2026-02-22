@@ -17,7 +17,13 @@ class AnswerSheetController extends Controller
     public function index()
     {
         return AnswerSheet::with('exam')
-            ->where('user_id', Auth::id())
+            ->where(function ($query) {
+                $query->where('created_by', Auth::id())
+                    ->orWhere(function ($fallback) {
+                        $fallback->whereNull('created_by')
+                            ->where('user_id', Auth::id());
+                    });
+            })
             ->latest()
             ->get();
     }
@@ -35,7 +41,13 @@ class AnswerSheetController extends Controller
 
     public function update(Request $request, $id)
     {
-        $sheet = AnswerSheet::where('user_id', Auth::id())->findOrFail($id);
+        $sheet = AnswerSheet::where(function ($query) {
+            $query->where('created_by', Auth::id())
+                ->orWhere(function ($fallback) {
+                    $fallback->whereNull('created_by')
+                        ->where('user_id', Auth::id());
+                });
+        })->findOrFail($id);
 
         $data = $request->validate([
             'image_path' => 'nullable|string',
@@ -51,7 +63,13 @@ class AnswerSheetController extends Controller
 
     public function destroy($id)
     {
-        $sheet = AnswerSheet::where('user_id', Auth::id())->findOrFail($id);
+        $sheet = AnswerSheet::where(function ($query) {
+            $query->where('created_by', Auth::id())
+                ->orWhere(function ($fallback) {
+                    $fallback->whereNull('created_by')
+                        ->where('user_id', Auth::id());
+                });
+        })->findOrFail($id);
         $sheet->delete();
 
         return response()->json(['message' => 'Deleted']);
@@ -59,6 +77,9 @@ class AnswerSheetController extends Controller
 
     public function generatePdf(Request $request)
     {
+        @set_time_limit(300);
+        @ini_set('memory_limit', '1024M');
+
         $data = $request->validate([
             'exam_id' => 'required|exists:exams,id',
             'count' => 'required|integer|min:1|max:200',
@@ -67,27 +88,41 @@ class AnswerSheetController extends Controller
         $examId = (int) $data['exam_id'];
         $count = (int) $data['count'];
 
-        $sheets = [];
+        $created = collect();
         for ($i = 0; $i < $count; $i++) {
             $sheet = $this->createSheet($examId);
-            $sheets[] = $this->formatSheetForPdf($sheet);
+            $created->push($sheet->load('exam'));
         }
 
-        $exam = Exam::findOrFail($examId);
+        $pdfSheets = $created->map(fn ($sheet) => $this->formatSheetForPdf($sheet))->all();
+        $exam = Exam::find($examId);
 
-        $pdf = Pdf::loadView('pdf.bubble_sheet', [
-            'sheets' => $sheets,
+        $pdf = Pdf::setOption([
+            'dpi' => 96,
+            'defaultFont' => 'Arial',
+            'isRemoteEnabled' => false,
+        ])->loadView('pdf.bubble_sheet', [
+            'sheets' => $pdfSheets,
             'exam' => $exam,
         ]);
 
-        $fileName = 'answer_sheets_' . $examId . '_' . now()->format('Ymd_His') . '.pdf';
+        $fileName = 'answer_sheets_generated_' . now()->format('Ymd_His') . '.pdf';
 
         return $pdf->download($fileName);
     }
 
     public function printSingle($id)
     {
-        $sheet = AnswerSheet::where('user_id', Auth::id())->findOrFail($id);
+        @set_time_limit(180);
+        @ini_set('memory_limit', '768M');
+
+        $sheet = AnswerSheet::where(function ($query) {
+            $query->where('created_by', Auth::id())
+                ->orWhere(function ($fallback) {
+                    $fallback->whereNull('created_by')
+                        ->where('user_id', Auth::id());
+                });
+        })->findOrFail($id);
         $sheets = [$this->formatSheetForPdf($sheet)];
 
         $pdf = Pdf::loadView('pdf.bubble_sheet', [
@@ -96,6 +131,53 @@ class AnswerSheetController extends Controller
         ]);
 
         $fileName = 'answer_sheet_' . $sheet->id . '.pdf';
+
+        return $pdf->download($fileName);
+    }
+
+    public function printSelected(Request $request)
+    {
+        @set_time_limit(300);
+        @ini_set('memory_limit', '1024M');
+
+        $data = $request->validate([
+            'sheet_ids' => 'required|array|min:1',
+            'sheet_ids.*' => 'integer|distinct',
+        ]);
+
+        $ids = collect($data['sheet_ids'])->map(fn ($id) => (int) $id)->values();
+        $sheets = AnswerSheet::with('exam')
+            ->where(function ($query) {
+                $query->where('created_by', Auth::id())
+                    ->orWhere(function ($fallback) {
+                        $fallback->whereNull('created_by')
+                            ->where('user_id', Auth::id());
+                    });
+            })
+            ->whereIn('id', $ids)
+            ->get();
+
+        if ($sheets->isEmpty()) {
+            return response()->json(['message' => 'No valid sheets selected for printing.'], 422);
+        }
+
+        if ($sheets->count() !== $ids->count()) {
+            return response()->json(['message' => 'Some selected sheets are invalid or not owned by your account.'], 422);
+        }
+
+        $pdfSheets = $sheets->map(fn ($sheet) => $this->formatSheetForPdf($sheet))->all();
+        $exam = Exam::find($sheets->first()->exam_id);
+
+        $pdf = Pdf::setOption([
+            'dpi' => 96,
+            'defaultFont' => 'Arial',
+            'isRemoteEnabled' => false,
+        ])->loadView('pdf.bubble_sheet', [
+            'sheets' => $pdfSheets,
+            'exam' => $exam,
+        ]);
+
+        $fileName = 'answer_sheets_selected_' . now()->format('Ymd_His') . '.pdf';
 
         return $pdf->download($fileName);
     }
@@ -133,16 +215,31 @@ class AnswerSheetController extends Controller
         }
 
         if ((int) $sheet->user_id === (int) $userId) {
+            if (!$sheet->scanned_at) {
+                $sheet->update(['scanned_at' => now()]);
+            }
+
             return response()->json([
                 'message' => 'Answer sheet is already linked to your account.',
                 'sheet' => $sheet->load('exam'),
             ]);
         }
 
-        $sheet->update([
+        $updates = [
             'user_id' => $userId,
             'status' => $sheet->status ?: 'generated',
-        ]);
+            'scanned_at' => now(),
+        ];
+
+        if (empty($sheet->created_by) && $sheet->user_id && $currentOwnerRole !== 'student') {
+            $updates['created_by'] = (int) $sheet->user_id;
+        }
+
+        if (($sheet->status ?? '') === 'generated') {
+            $updates['status'] = 'scanned';
+        }
+
+        $sheet->update($updates);
 
         return response()->json([
             'message' => 'Answer sheet linked successfully.',
@@ -156,6 +253,7 @@ class AnswerSheetController extends Controller
             'qr_payload' => (string) Str::uuid(),
             'exam_id' => $examId,
             'user_id' => Auth::id(),
+            'created_by' => Auth::id(),
             'status' => 'generated',
         ]);
 
@@ -182,6 +280,7 @@ class AnswerSheetController extends Controller
         return [
             'id' => $sheet->id,
             'sheetCode' => $sheetCode,
+            'sheetQrMime' => 'image/svg+xml',
             'sheetQr' => base64_encode($qrSvg),
         ];
     }

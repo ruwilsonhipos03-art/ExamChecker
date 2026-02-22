@@ -40,7 +40,7 @@ let statsRefreshTimer = null;
 const stats = ref([
     { label: 'Total Employees', value: '0', icon: 'bi-people-fill', colorClass: 'bg-emerald-light text-emerald' },
     { label: 'Total Students', value: '0', icon: 'bi-person-badge-fill', colorClass: 'bg-emerald-light text-emerald' },
-    { label: 'Departments', value: '0', icon: 'bi-building-fill', colorClass: 'bg-emerald-light text-emerald' },
+    { label: 'Colleges', value: '0', icon: 'bi-building-fill', colorClass: 'bg-emerald-light text-emerald' },
     { label: 'Programs', value: '0', icon: 'bi-journal-bookmark-fill', colorClass: 'bg-emerald-light text-emerald' }
 ]);
 
@@ -63,7 +63,7 @@ const loadStats = async () => {
         stats.value = [
             { label: 'Total Employees', value: normalizeCount(data, 'total_employees', 'employees'), icon: 'bi-people-fill', colorClass: 'bg-emerald-light text-emerald' },
             { label: 'Total Students', value: normalizeCount(data, 'total_students', 'students'), icon: 'bi-person-badge-fill', colorClass: 'bg-emerald-light text-emerald' },
-            { label: 'Departments', value: normalizeCount(data, 'departments', 'total_departments'), icon: 'bi-building-fill', colorClass: 'bg-emerald-light text-emerald' },
+            { label: 'Colleges', value: normalizeCount(data, 'departments', 'total_departments'), icon: 'bi-building-fill', colorClass: 'bg-emerald-light text-emerald' },
             { label: 'Programs', value: normalizeCount(data, 'programs', 'total_programs'), icon: 'bi-journal-bookmark-fill', colorClass: 'bg-emerald-light text-emerald' }
         ];
     } catch (error) {

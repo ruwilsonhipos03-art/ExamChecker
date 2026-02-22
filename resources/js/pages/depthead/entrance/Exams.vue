@@ -4,7 +4,7 @@
             <div class="card-body p-4">
                 <div class="row align-items-center">
                     <div class="col">
-                        <h4 class="fw-bold mb-1">Department Head Workspace</h4>
+                        <h4 class="fw-bold mb-1">College Dean Workspace</h4>
                         <p class="text-indigo-100 small mb-0">Manage screening examination sets</p>
                     </div>
                     <div class="col-auto">

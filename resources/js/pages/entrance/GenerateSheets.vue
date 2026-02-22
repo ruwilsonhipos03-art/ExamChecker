@@ -5,11 +5,17 @@
                 <div class="row align-items-center g-3">
                     <div class="col-12 col-md">
                         <h4 class="fw-bold mb-1 text-dark">Generate Answer Sheets</h4>
-                        <p class="text-muted small mb-0 d-none d-sm-block">Create and print OMR bubble sheets</p>
+                        <p class="text-muted small mb-0 d-none d-sm-block">Create and download OMR bubble sheets</p>
                     </div>
-                    <div class="col-12 col-md-auto">
-                        <button @click="openModal" class="btn btn-emerald fw-bold w-100 px-4">
-                            <i class="bi bi-printer me-2"></i> GENERATE / PRINT
+                    <div class="col-12 col-md-auto d-flex gap-2">
+                        <button @click="deleteSelectedSheets" class="btn btn-light-danger fw-bold px-4"
+                            :disabled="selectedSheetIds.length === 0 || isDeletingSelected || isPrintingSelected">
+                            <span v-if="isDeletingSelected" class="spinner-border spinner-border-sm me-2"></span>
+                            <i v-else class="bi bi-trash3 me-2"></i>
+                            {{ isDeletingSelected ? 'DELETING...' : 'DELETE SELECTED' }}
+                        </button>
+                        <button @click="openModal" class="btn btn-emerald fw-bold px-4">
+                            <i class="bi bi-plus-circle me-2"></i> GENERATE
                         </button>
                     </div>
                 </div>
@@ -21,6 +27,11 @@
                 <table class="table table-hover mb-0 align-middle">
                     <thead class="bg-light">
                         <tr>
+                            <th class="py-3 ps-3 text-secondary small fw-bold">
+                                <input class="form-check-input" type="checkbox"
+                                    :checked="sheets.length > 0 && selectedSheetIds.length === sheets.length"
+                                    @change="toggleSelectAll">
+                            </th>
                             <th class="py-3 text-secondary small fw-bold">SHEET CODE</th>
                             <th class="py-3 text-secondary small fw-bold">EXAM</th>
                             <th class="py-3 text-secondary small fw-bold">STATUS</th>
@@ -43,7 +54,10 @@
                         </tr>
 
                         <tr v-else v-for="sheet in sheets" :key="sheet.id">
-
+                            <td class="ps-3">
+                                <input class="form-check-input" type="checkbox" :value="sheet.id"
+                                    v-model="selectedSheetIds">
+                            </td>
                             <td class="fw-bold text-emerald">{{ sheet.qr_payload }}</td>
                             <td>{{ sheet.exam?.Exam_Title || 'N/A' }}</td>
                             <td>
@@ -51,13 +65,17 @@
                             </td>
                             <td class="pe-4 text-end">
                                 <div class="btn-group shadow-sm rounded-3">
-                                    <button @click="printSheet(sheet.id)" class="btn btn-light-success border-0 px-3"
-                                        title="Print">
-                                        <i class="bi bi-printer"></i>
+                                    <button @click="downloadSheet(sheet.id)" class="btn btn-light-success border-0 px-3"
+                                        title="Download" :disabled="printingId === sheet.id || deletingId === sheet.id">
+                                        <span v-if="printingId === sheet.id"
+                                            class="spinner-border spinner-border-sm"></span>
+                                        <i v-else class="bi bi-download"></i>
                                     </button>
                                     <button @click="deleteSheet(sheet.id)" class="btn btn-light-danger border-0 px-3"
-                                        title="Delete">
-                                        <i class="bi bi-trash3"></i>
+                                        title="Delete" :disabled="deletingId === sheet.id || printingId === sheet.id">
+                                        <span v-if="deletingId === sheet.id"
+                                            class="spinner-border spinner-border-sm"></span>
+                                        <i v-else class="bi bi-trash3"></i>
                                     </button>
                                 </div>
                             </td>
@@ -90,14 +108,14 @@
                             <input v-model.number="form.count" type="number" min="1" max="200"
                                 class="form-control border-2" placeholder="e.g. 5">
                         </div>
-                        <p class="small text-muted mb-0">This will generate a multi-page PDF for printing.</p>
+                        <p class="small text-muted mb-0">This will generate answer sheets and download the PDF.</p>
                     </div>
                     <div class="modal-footer bg-light border-top">
                         <button type="button" class="btn btn-light px-4 fw-bold" data-bs-dismiss="modal">CANCEL</button>
                         <button @click="generateSheets" class="btn btn-emerald px-4 fw-bold"
                             :disabled="isGenerating || !form.exam_id || !form.count">
                             <span v-if="isGenerating" class="spinner-border spinner-border-sm me-2"></span>
-                            {{ isGenerating ? 'GENERATING...' : 'GENERATE' }}
+                            {{ isGenerating ? 'GENERATING / DOWNLOADING...' : 'GENERATE / DOWNLOAD' }}
                         </button>
                     </div>
                 </div>
@@ -117,6 +135,11 @@ const sheets = ref([]);
 const availableExams = ref([]);
 const isLoading = ref(false);
 const isGenerating = ref(false);
+const selectedSheetIds = ref([]);
+const printingId = ref(null);
+const deletingId = ref(null);
+const isPrintingSelected = ref(false);
+const isDeletingSelected = ref(false);
 
 const form = reactive({
     exam_id: '',
@@ -143,8 +166,12 @@ const fetchSheets = async () => {
             axios.get('/api/exams'),
         ]);
 
-        // Use logic to handle potential non-array responses
-        sheets.value = Array.isArray(sheetsRes.data) ? sheetsRes.data : [];
+        // Always show highest sheet id first.
+        sheets.value = Array.isArray(sheetsRes.data)
+            ? [...sheetsRes.data].sort((a, b) => Number(b?.id || 0) - Number(a?.id || 0))
+            : [];
+        const validIds = new Set(sheets.value.map((sheet) => sheet.id));
+        selectedSheetIds.value = selectedSheetIds.value.filter((id) => validIds.has(id));
         availableExams.value = Array.isArray(examsRes.data) ? examsRes.data : [];
     } catch (e) {
         console.error('Failed to load data', e);
@@ -157,6 +184,14 @@ const fetchSheets = async () => {
     } finally {
         isLoading.value = false;
     }
+};
+
+const toggleSelectAll = (event) => {
+    if (event.target.checked) {
+        selectedSheetIds.value = sheets.value.map((sheet) => sheet.id);
+        return;
+    }
+    selectedSheetIds.value = [];
 };
 
 const openModal = () => {
@@ -178,7 +213,7 @@ const generateSheets = async () => {
         const url = window.URL.createObjectURL(blob);
         const headerName = res.headers['content-disposition'];
         const match = headerName?.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/i);
-        const fileName = match ? match[1].replace(/['"]/g, '') : `answer_sheets_${form.exam_id}.pdf`;
+        const fileName = match ? match[1].replace(/['"]/g, '') : `answer_sheets_generated.pdf`;
 
         const link = document.createElement('a');
         link.href = url;
@@ -193,13 +228,13 @@ const generateSheets = async () => {
 
         Toast.fire({
             icon: 'success',
-            title: 'Answer sheets generated successfully'
+            title: 'Answer sheets generated and downloaded'
         });
     } catch (e) {
         Swal.fire({
             icon: 'error',
             title: 'Generation Failed',
-            text: 'Could not generate sheets. Check your network or inputs.',
+            text: 'Could not generate/download sheets. Check your network or inputs.',
             confirmButtonColor: '#ef4444'
         });
     } finally {
@@ -207,18 +242,78 @@ const generateSheets = async () => {
     }
 };
 
-const printSheet = async (id) => {
+const downloadSelectedSheets = async () => {
+    if (selectedSheetIds.value.length === 0) return;
+
     try {
+        isPrintingSelected.value = true;
+        const res = await axios.post(
+            '/api/answer-sheets/print-selected',
+            { sheet_ids: selectedSheetIds.value },
+            { responseType: 'blob' }
+        );
+
+        const blob = new Blob([res.data], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+        const headerName = res.headers['content-disposition'];
+        const match = headerName?.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/i);
+        const fileName = match ? match[1].replace(/['"]/g, '') : `answer_sheets_selected.pdf`;
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        Toast.fire({
+            icon: 'success',
+            title: `${selectedSheetIds.value.length} sheet${selectedSheetIds.value.length > 1 ? 's' : ''} downloaded`
+        });
+    } catch (e) {
+        let message = 'Could not download selected sheets.';
+        const maybeBlob = e?.response?.data;
+        if (maybeBlob instanceof Blob) {
+            try {
+                const text = await maybeBlob.text();
+                const parsed = JSON.parse(text);
+                message = parsed?.message || message;
+            } catch (_) {
+                // Keep fallback message
+            }
+        } else {
+            message = e?.response?.data?.message || message;
+        }
+        Swal.fire('Error', message, 'error');
+    } finally {
+        isPrintingSelected.value = false;
+    }
+};
+
+const downloadSheet = async (id) => {
+    try {
+        printingId.value = id;
         const res = await axios.get(`/api/answer-sheets/${id}/print`, { responseType: 'blob' });
         const blob = new Blob([res.data], { type: 'application/pdf' });
         const url = window.URL.createObjectURL(blob);
-        window.open(url, '_blank');
+        const headerName = res.headers['content-disposition'];
+        const match = headerName?.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/i);
+        const fileName = match ? match[1].replace(/['"]/g, '') : `answer_sheet_${id}.pdf`;
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
     } catch (e) {
         Toast.fire({
             icon: 'error',
-            title: 'Failed to print sheet'
+            title: 'Failed to download sheet'
         });
+    } finally {
+        printingId.value = null;
     }
 };
 
@@ -235,6 +330,7 @@ const deleteSheet = async (id) => {
 
     if (result.isConfirmed) {
         try {
+            deletingId.value = id;
             await axios.delete(`/api/answer-sheets/${id}`);
             await fetchSheets();
             Toast.fire({
@@ -243,7 +339,41 @@ const deleteSheet = async (id) => {
             });
         } catch (e) {
             Swal.fire('Error', 'Could not delete the record.', 'error');
+        } finally {
+            deletingId.value = null;
         }
+    }
+};
+
+const deleteSelectedSheets = async () => {
+    if (selectedSheetIds.value.length === 0) return;
+
+    const count = selectedSheetIds.value.length;
+    const result = await Swal.fire({
+        title: `Delete ${count} sheet${count > 1 ? 's' : ''}?`,
+        text: "This action cannot be undone.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, delete selected'
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+        isDeletingSelected.value = true;
+        await Promise.all(selectedSheetIds.value.map((id) => axios.delete(`/api/answer-sheets/${id}`)));
+        selectedSheetIds.value = [];
+        await fetchSheets();
+        Toast.fire({
+            icon: 'success',
+            title: `${count} sheet${count > 1 ? 's' : ''} deleted`
+        });
+    } catch (e) {
+        Swal.fire('Error', 'Could not delete selected records.', 'error');
+    } finally {
+        isDeletingSelected.value = false;
     }
 };
 

@@ -191,7 +191,8 @@ const saveExam = async () => {
         await fetchExams();
         window.Toast?.fire({ icon: 'success', title: 'Data synced!' });
     } catch (e) {
-        window.Swal?.fire({ icon: 'error', title: 'Error', text: 'Failed to save.' });
+        const message = e?.response?.data?.message || 'Failed to save.';
+        window.Swal?.fire({ icon: 'error', title: 'Error', text: message });
     } finally {
         isSaving.value = false;
     }

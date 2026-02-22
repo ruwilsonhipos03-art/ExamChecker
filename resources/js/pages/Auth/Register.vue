@@ -111,23 +111,7 @@ const handleRegister = async () => {
         localStorage.setItem('user_data', JSON.stringify(res.data.user));
         axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
 
-        // 2. Send verification code and prompt for it
-        await axios.post('/api/email-verification/send');
-        const { value: code } = await Swal.fire({
-            title: 'Verify Your Email',
-            input: 'text',
-            inputLabel: 'Enter the 6-digit code sent to your email',
-            inputPlaceholder: 'e.g. 123456',
-            inputAttributes: { maxlength: 6, autocapitalize: 'off', autocorrect: 'off' },
-            confirmButtonText: 'Verify',
-            confirmButtonColor: '#10b981',
-            showCancelButton: false
-        });
-        if (code) {
-            await axios.post('/api/email-verification/verify', { code });
-        }
-
-        // 3. Show the Exam Schedule Reveal
+        // 2. Show the Exam Schedule Reveal
         const sched = res.data.schedule;
         await Swal.fire({
             title: '<strong>Account Created!</strong>',

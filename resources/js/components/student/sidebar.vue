@@ -30,6 +30,11 @@
         <span v-if="!isCollapsed">Reports</span>
       </router-link>
 
+      <router-link to="/student/profile" class="nav-item">
+        <i class="bi bi-person-circle"></i>
+        <span v-if="!isCollapsed">Profile</span>
+      </router-link>
+
       <!-- <div class="section-label" v-if="!isCollapsed">EXAMS</div> -->
     </div>
   </aside>

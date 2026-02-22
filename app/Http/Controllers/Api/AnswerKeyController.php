@@ -13,8 +13,8 @@ class AnswerKeyController extends Controller
 {
     public function index()
     {
-        return AnswerKey::with(['examSubject', 'exam'])
-            ->where('user_id', Auth::id())
+        return $this->scopedAnswerKeysQuery()
+            ->with(['examSubject', 'exam'])
             ->latest()
             ->get();
     }
@@ -58,8 +58,8 @@ class AnswerKeyController extends Controller
 
     public function downloadPdf($id)
     {
-        $answerKey = AnswerKey::with(['examSubject', 'exam'])
-            ->where('user_id', Auth::id())
+        $answerKey = $this->scopedAnswerKeysQuery()
+            ->with(['examSubject', 'exam'])
             ->findOrFail($id);
 
         $pdf = Pdf::loadView('pdf.answer_key_template', compact('answerKey'));
@@ -75,5 +75,20 @@ class AnswerKeyController extends Controller
         $answerKey = AnswerKey::where('user_id', Auth::id())->findOrFail($id);
         $answerKey->delete();
         return response()->json(['message' => 'Deleted successfully']);
+    }
+
+    private function scopedAnswerKeysQuery()
+    {
+        $user = Auth::user();
+
+        $query = AnswerKey::query();
+
+        if ($user && $user->role === 'entrance_examiner') {
+            return $query->whereHas('exam', function ($q) {
+                $q->where('Exam_Type', 'Entrance');
+            });
+        }
+
+        return $query->where('user_id', Auth::id());
     }
 }

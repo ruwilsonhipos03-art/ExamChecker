@@ -18,4 +18,9 @@ class Program extends Model
     {
         return $this->belongsTo(Department::class);
     }
+
+    public function requirement()
+    {
+        return $this->hasOne(ProgramRequirement::class);
+    }
 }

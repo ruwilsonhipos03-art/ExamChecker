@@ -3,19 +3,19 @@
         <div class="nav-links">
             <div class="section-label" v-if="!isCollapsed">MAIN</div>
 
-            <router-link to="/department-head/dashboard" class="nav-item">
+            <router-link to="/college-dean/dashboard" class="nav-item">
                 <i class="bi bi-grid-fill"></i>
                 <span v-if="!isCollapsed">Dashboard</span>
             </router-link>
 
             <div class="section-label" v-if="!isCollapsed">TABLES</div>
 
-            <router-link to="/department-head/students" class="nav-item">
+            <router-link to="/college-dean/students" class="nav-item">
                 <i class="bi bi-people-fill"></i>
                 <span v-if="!isCollapsed">Students</span>
             </router-link>
 
-            <router-link to="/department-head/subjects" class="nav-item">
+            <router-link to="/college-dean/subjects" class="nav-item">
                 <i class="bi bi-book-half"></i>
                 <span v-if="!isCollapsed">Subjects</span>
             </router-link>
@@ -34,16 +34,16 @@
                 </button>
 
                 <div class="sub-nav" v-if="isEntranceOpen && !isCollapsed">
-                    <router-link to="/department-head/entrance/exams" class="sub-item">
+                    <router-link to="/college-dean/entrance/exams" class="sub-item">
                         <i class="bi bi-file-earmark-text"></i> Exam
                     </router-link>
-                    <router-link to="/department-head/entrance/keys" class="sub-item">
+                    <router-link to="/college-dean/entrance/keys" class="sub-item">
                         <i class="bi bi-key-fill"></i> Answer Key
                     </router-link>
-                    <router-link to="/department-head/entrance/generate" class="sub-item">
+                    <router-link to="/college-dean/entrance/generate" class="sub-item">
                         <i class="bi bi-file-earmark-plus-fill"></i> Generate Sheet
                     </router-link>
-                    <router-link to="/department-head/entrance/reports" class="sub-item">
+                    <router-link to="/college-dean/entrance/reports" class="sub-item">
                         <i class="bi bi-file-bar-graph-fill"></i> Reports
                     </router-link>
                 </div>
@@ -61,16 +61,16 @@
                 </button>
 
                 <div class="sub-nav" v-if="isNormalOpen && !isCollapsed">
-                    <router-link to="/department-head/normal/exams" class="sub-item">
+                    <router-link to="/college-dean/normal/exams" class="sub-item">
                         <i class="bi bi-file-earmark-text"></i> Exam
                     </router-link>
-                    <router-link to="/department-head/normal/keys" class="sub-item">
+                    <router-link to="/college-dean/normal/keys" class="sub-item">
                         <i class="bi bi-key-fill"></i> Answer Key
                     </router-link>
-                    <router-link to="/department-head/normal/generate" class="sub-item">
+                    <router-link to="/college-dean/normal/generate" class="sub-item">
                         <i class="bi bi-file-earmark-plus-fill"></i> Generate Sheet
                     </router-link>
-                    <router-link to="/department-head/normal/reports" class="sub-item">
+                    <router-link to="/college-dean/normal/reports" class="sub-item">
                         <i class="bi bi-file-bar-graph-fill"></i> Reports
                     </router-link>
                 </div>

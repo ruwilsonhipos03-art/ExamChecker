@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Employee;
 use App\Models\Exam;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -11,6 +12,28 @@ use Illuminate\Validation\ValidationException;
 
 class ExamController extends Controller
 {
+    private function currentEmployeeId(): ?int
+    {
+        return Employee::where('user_id', Auth::id())->value('id');
+    }
+
+    private function ownedExamsQuery()
+    {
+        $userId = Auth::id();
+        $employeeId = $this->currentEmployeeId();
+
+        return Exam::query()->where(function ($query) use ($userId, $employeeId) {
+            if ($employeeId) {
+                // Keep legacy records (created_by was user_id in old code) visible/editable.
+                $query->where('created_by', $employeeId)
+                    ->orWhere('created_by', $userId);
+                return;
+            }
+
+            $query->where('created_by', $userId);
+        });
+    }
+
     private function validateSubjectRanges(array $rows): void
     {
         foreach ($rows as $index => $row) {
@@ -31,7 +54,7 @@ class ExamController extends Controller
     public function index()
     {
         return Exam::with(['creator', 'examSubjects.subject'])
-            ->where('created_by', Auth::id()) // Only fetch my exams
+            ->whereIn('id', $this->ownedExamsQuery()->select('id'))
             ->orderBy('created_at', 'desc')
             ->get();
     }
@@ -51,11 +74,18 @@ class ExamController extends Controller
         ]);
         $this->validateSubjectRanges($validated['exam_subjects'] ?? []);
 
-        $exam = DB::transaction(function () use ($validated) {
+        $employeeId = $this->currentEmployeeId();
+        if (!$employeeId) {
+            return response()->json([
+                'message' => 'No employee profile is linked to your account. Please contact the administrator.',
+            ], 422);
+        }
+
+        $exam = DB::transaction(function () use ($validated, $employeeId) {
             $exam = Exam::create([
                 'Exam_Title' => $validated['Exam_Title'],
                 'Exam_Type'  => $validated['Exam_Type'],
-                'created_by' => Auth::id(), // Links to whoever is logged in
+                'created_by' => $employeeId,
             ]);
 
             $subjects = collect($validated['exam_subjects'] ?? [])
@@ -85,8 +115,7 @@ class ExamController extends Controller
      */
     public function update(Request $request, $id)
     {
-        // where('created_by', Auth::id()) prevents editing others' work
-        $exam = Exam::where('created_by', Auth::id())->findOrFail($id);
+        $exam = $this->ownedExamsQuery()->findOrFail($id);
 
         $validated = $request->validate([
             'Exam_Title' => 'required|string|max:255',
@@ -133,7 +162,7 @@ class ExamController extends Controller
      */
     public function destroy($id)
     {
-        $exam = Exam::where('created_by', Auth::id())->findOrFail($id);
+        $exam = $this->ownedExamsQuery()->findOrFail($id);
         $exam->delete();
         return response()->json(null, 204);
     }

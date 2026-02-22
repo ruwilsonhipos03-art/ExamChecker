@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 use App\Models\ExamSchedule;
+use App\Models\Exam;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -75,6 +76,7 @@ class AuthController extends Controller
                     'extension_name' => $user->extension_name,
                     'username' => $user->username,
                     'email' => $user->email,
+                    'email_verified_at' => $user->email_verified_at,
                     'role' => $user->role,
                     'employee_id' => $user->employee_id, // Useful for linking to faculty records
                 ]
@@ -127,16 +129,35 @@ class AuthController extends Controller
             // 2. Database Transaction with Concurrency Control
             return DB::transaction(function () use ($validated) {
 
-                // Find earliest schedule with capacity.
-                // lockForUpdate() prevents race conditions.
-                $availableSchedule = ExamSchedule::where('date', '>=', now())
+                // Find the earliest upcoming schedule with remaining slots.
+                // lockForUpdate() prevents race conditions on concurrent registration.
+                $now = now();
+                $availableSchedule = ExamSchedule::query()
+                    ->where(function ($query) use ($now) {
+                        $query->where('date', '>', $now->toDateString())
+                            ->orWhere(function ($inner) use ($now) {
+                                $inner->where('date', '=', $now->toDateString())
+                                    ->where('time', '>=', $now->format('H:i:s'));
+                            });
+                    })
                     ->whereRaw('current_examinees < capacity')
                     ->orderBy('date', 'asc')
+                    ->orderBy('time', 'asc')
                     ->lockForUpdate()
                     ->first();
 
                 if (!$availableSchedule) {
                     throw new \Exception("We are sorry! All exam slots are currently full. Please contact the Admissions Office.");
+                }
+
+                // Students must take Entrance exam first.
+                $entranceExam = Exam::query()
+                    ->whereIn(DB::raw('LOWER(Exam_Type)'), ['entrance', 'entrance exam'])
+                    ->orderBy('created_at', 'desc')
+                    ->first();
+
+                if (!$entranceExam) {
+                    throw new \Exception("No entrance exam is configured yet. Please contact the Admissions Office.");
                 }
 
                 // 3. Create the Student User
@@ -149,11 +170,19 @@ class AuthController extends Controller
                     'username'         => $validated['username'],
                     'password'         => Hash::make($validated['password']),
                     'role'             => 'student',
-                    'exam_schedule_id' => $availableSchedule->id, // Link to schedule
                 ]);
 
                 // 4. Update the Examinee Counter
                 $availableSchedule->increment('current_examinees');
+
+                DB::table('student_exam_schedules')->insert([
+                    'user_id' => $user->id,
+                    'exam_id' => $entranceExam->id,
+                    'exam_schedule_id' => $availableSchedule->id,
+                    'status' => 'scheduled',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
 
                 // 5. Generate Access Token
                 $token = $user->createToken('auth_token')->plainTextToken;
@@ -163,6 +192,8 @@ class AuthController extends Controller
                     'token'    => $token,
                     'user'     => $user,
                     'schedule' => [
+                        'exam_title' => $entranceExam->Exam_Title,
+                        'exam_type' => $entranceExam->Exam_Type,
                         'date'   => \Carbon\Carbon::parse($availableSchedule->date)->format('F j, Y'),
                         'time'   => $availableSchedule->time,
                         'location'  => $availableSchedule->location,
@@ -202,10 +233,40 @@ class AuthController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Invalid or expired code.'], 422);
         }
 
-        $user->update(['email_verified_at' => now()]);
+        $user->email_verified_at = now();
+        $user->save();
         DB::table('email_verification_tokens')->where('email', $user->email)->delete();
 
         return response()->json(['status' => 'success', 'message' => 'Email verified successfully.']);
+    }
+
+    public function updateEmail(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => 'required|string|email|max:255|unique:users,email',
+        ]);
+
+        $user = $request->user();
+        $user->email = $validated['email'];
+        $user->email_verified_at = null;
+        $user->save();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Email updated. Please verify your new email.',
+            'user' => [
+                'id' => $user->id,
+                'first_name' => $user->first_name,
+                'middle_initial' => $user->middle_initial,
+                'last_name' => $user->last_name,
+                'extension_name' => $user->extension_name,
+                'username' => $user->username,
+                'email' => $user->email,
+                'role' => $user->role,
+                'employee_id' => $user->employee_id,
+                'email_verified_at' => $user->email_verified_at,
+            ]
+        ]);
     }
 
     public function sendForgotPasswordCode(Request $request)

@@ -32,12 +32,23 @@ class DashboardStatsController extends Controller
     public function deptHead()
     {
         $userId = Auth::id();
-        $departmentId = DB::table('employees')
+        $employee = DB::table('employees')
             ->where('user_id', $userId)
-            ->value('department_id');
+            ->select('id', 'department_id')
+            ->first();
+        $departmentId = $employee?->department_id;
+        $employeeId = $employee?->id;
 
         $examsCreated = DB::table('exams')
-            ->where('created_by', $userId)
+            ->where(function ($query) use ($employeeId, $userId) {
+                if ($employeeId) {
+                    $query->where('created_by', $employeeId)
+                        ->orWhere('created_by', $userId);
+                    return;
+                }
+
+                $query->where('created_by', $userId);
+            })
             ->count();
 
         $subjects = DB::table('exam_subjects')

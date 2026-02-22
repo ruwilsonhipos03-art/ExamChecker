@@ -7,7 +7,7 @@
 
             <div class="d-flex align-items-center gap-2">
                 <div class="logo-box">
-                    <i class="bi bi-qr-code-scan"></i>
+                    <img src="../../../../public/images/Logo.png" alt="EduAssess Logo" class="logo-img">
                 </div>
                 <span class="fw-bold fs-5 mb-0 text-dark">Welcome, {{ user.first_name }}!</span>
             </div>
@@ -60,7 +60,7 @@ const user = ref({
 
 onMounted(() => {
     // Retrieve the stored user object
-    const data = localStorage.getItem('user_data');
+    const data = localStorage.getItem('user_data') || sessionStorage.getItem('user_data');
     if (data) {
         user.value = JSON.parse(data);
     }
@@ -86,21 +86,27 @@ const logout = async () => {
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#10b981',
-        confirmButtonText: 'Yes, logout'
+        confirmButtonText: 'Yes, logout',
+        showLoaderOnConfirm: true,
+        allowOutsideClick: () => !window.Swal.isLoading(),
+        preConfirm: async () => {
+            try {
+                await axios.post('/api/logout');
+            } catch (e) {
+                console.warn("Server-side logout failed, clearing local session anyway.");
+            }
+            return true;
+        }
     });
 
     if (result.isConfirmed) {
-        try {
-            await axios.post('/api/logout');
-        } catch (e) {
-            console.warn("Server-side logout failed, clearing local session anyway.");
-        } finally {
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('user_data');
-            delete axios.defaults.headers.common['Authorization'];
-            router.push('/login');
-            window.Toast.fire({ icon: 'success', title: 'Logged out successfully' });
-        }
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_data');
+        sessionStorage.removeItem('auth_token');
+        sessionStorage.removeItem('user_data');
+        delete axios.defaults.headers.common['Authorization'];
+        await router.push('/login');
+        window.Toast.fire({ icon: 'success', title: 'Logged out successfully' });
     }
 };
 </script>
@@ -114,16 +120,19 @@ const logout = async () => {
 }
 
 .logo-box {
-    width: 38px;
-    height: 38px;
-    background: #10b981;
-    color: white;
-    border-radius: 10px;
+    width: 52px;
+    height: 52px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: bold;
-    font-size: 1.2rem;
+    overflow: hidden;
+}
+
+.logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .avatar {

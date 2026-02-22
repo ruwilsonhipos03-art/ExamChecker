@@ -31,7 +31,7 @@
             <i class="bi bi-building-fill"></i> Offices
           </router-link>
           <router-link to="/admin/Departments" class="sub-item">
-            <i class="bi bi-mortarboard-fill"></i> Departments
+            <i class="bi bi-mortarboard-fill"></i> Colleges
           </router-link>
           <router-link to="/admin/Programs" class="sub-item">
             <i class="bi bi-journal-text"></i> Programs

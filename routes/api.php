@@ -21,11 +21,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/email-verification/send', [AuthController::class, 'sendEmailVerificationCode']);
     Route::post('/email-verification/verify', [AuthController::class, 'verifyEmailCode']);
+    Route::put('/profile/email', [AuthController::class, 'updateEmail']);
 
     // General Resources
     Route::apiResource('exams', App\Http\Controllers\Api\ExamController::class);
     Route::apiResource('answer-sheets', App\Http\Controllers\Api\AnswerSheetController::class);
     Route::post('/answer-sheets/generate', [\App\Http\Controllers\Api\AnswerSheetController::class, 'generatePdf']);
+    Route::post('/answer-sheets/print-selected', [\App\Http\Controllers\Api\AnswerSheetController::class, 'printSelected']);
     Route::get('/answer-sheets/{id}/print', [\App\Http\Controllers\Api\AnswerSheetController::class, 'printSingle']);
     // CRUD Routes
     Route::apiResource('answer-keys', App\Http\Controllers\Api\AnswerKeyController::class);
@@ -43,6 +45,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('departments', App\Http\Controllers\Api\DepartmentController::class);
         Route::apiResource('exam-schedules', App\Http\Controllers\Api\ExamScheduleController::class);
         Route::apiResource('programs', App\Http\Controllers\Api\ProgramController::class);
+        Route::apiResource('program-requirements', App\Http\Controllers\Api\ProgramRequirementController::class);
         Route::apiResource('employees', App\Http\Controllers\Api\EmployeeController::class);
     });
 
@@ -56,7 +59,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('entrance')->group(function () {
         Route::get('dashboard/stats', [\App\Http\Controllers\Api\DashboardStatsController::class, 'entrance']);
         Route::get('reports/examinee-results', [\App\Http\Controllers\Api\ReportController::class, 'entranceExamineeResults']);
+        Route::get('reports/examinee-results/{answerSheetId}', [\App\Http\Controllers\Api\ReportController::class, 'entranceExamineeResultDetail']);
         Route::get('students/took-exams', [\App\Http\Controllers\Api\ReportController::class, 'entranceStudentsWhoTookExams']);
+        Route::post('omr/check', [\App\Http\Controllers\Api\OmrScanController::class, 'check']);
         Route::apiResource('exam-subjects', App\Http\Controllers\Api\ExamSubjectController::class);
         // Define routes here
     });
@@ -71,5 +76,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('student')->group(function () {
         Route::get('dashboard/stats', [\App\Http\Controllers\Api\DashboardStatsController::class, 'student']);
         Route::post('answer-sheets/scan', [\App\Http\Controllers\Api\AnswerSheetController::class, 'scanAndLink']);
+        Route::get('schedules', [\App\Http\Controllers\Api\StudentScheduleController::class, 'index']);
+        Route::get('reports', [\App\Http\Controllers\Api\ReportController::class, 'studentExamResults']);
+        Route::get('program-recommendations', [\App\Http\Controllers\Api\StudentRecommendationController::class, 'index']);
+        Route::post('program-recommendations/select', [\App\Http\Controllers\Api\StudentRecommendationController::class, 'saveSelection']);
     });
 });
