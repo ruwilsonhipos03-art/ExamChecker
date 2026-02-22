@@ -35,7 +35,7 @@
                             <option value="">All Roles</option>
                             <option value="instructor">Instructor</option>
                             <option value="student">Student</option>
-                            <option value="dept_head">Department Head</option>
+                            <option value="dept_head">College Dean</option>
                             <option value="admin">Administrator</option>
                         </select>
                     </div>
@@ -43,7 +43,7 @@
                     <div class="col-md-2">
                         <select v-model="filters.department" class="form-select form-select-sm"
                             @change="currentPage = 1">
-                            <option value="">All Departments</option>
+                            <option value="">All Colleges</option>
                             <option v-for="dept in departments" :key="dept.id" :value="dept.id">
                                 {{ dept.Department_Name }}
                             </option>
@@ -72,10 +72,10 @@
                     <table class="table table-hover mb-0 align-middle">
                         <thead class="bg-light">
                             <tr>
-                                <th class="ps-4 py-3 text-secondary small fw-bold">USER ID</th>
+                                <th class="ps-4 py-3 text-secondary small fw-bold">No.</th>
                                 <th class="py-3 text-secondary small fw-bold">FULL NAME</th>
                                 <th class="py-3 text-secondary small fw-bold">ROLE</th>
-                                <th class="py-3 text-secondary small fw-bold">DEPARTMENT / OFFICE</th>
+                                <th class="py-3 text-secondary small fw-bold">COLLEGE / OFFICE</th>
                                 <th class="py-3 text-secondary small fw-bold">EMAIL</th>
                                 <th class="pe-4 py-3 text-secondary small fw-bold text-center">STATUS</th>
                             </tr>
@@ -88,9 +88,9 @@
                                 </td>
                             </tr>
                             <template v-else>
-                                <tr v-for="user in paginatedData" :key="user.id">
+                                <tr v-for="(user, index) in paginatedData" :key="user.id">
                                     <td class="ps-4">
-                                        <span class="text-dark fw-bold">{{ user.id_number || 'N/A' }}</span>
+                                        <span class="text-dark fw-bold">{{ index + 1 }}</span>
                                     </td>
                                     <td>
                                         <div class="fw-semibold text-dark">{{ user.full_name }}</div>

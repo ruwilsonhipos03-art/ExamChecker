@@ -32,7 +32,7 @@
                             <tr>
                                 <th class="ps-4 py-3 text-secondary small fw-bold">No.</th>
                                 <th class="py-3 text-secondary small fw-bold">PROGRAM NAME</th>
-                                <th class="py-3 text-secondary small fw-bold">DEPARTMENT</th>
+                                <th class="py-3 text-secondary small fw-bold">COLLEGE</th>
                                 <th class="py-3 text-secondary small fw-bold">CREATED AT</th>
                                 <th class="pe-4 py-3 text-end text-secondary small fw-bold">ACTIONS</th>
                             </tr>
@@ -96,9 +96,9 @@
                                     placeholder="e.g. BSIT" required :disabled="isSaving">
                             </div>
                             <div class="mb-3">
-                                <label class="form-label small fw-bold text-uppercase">Assigned Department</label>
+                                <label class="form-label small fw-bold text-uppercase">Assigned College</label>
                                 <select v-model="form.department_id" class="form-select" required :disabled="isSaving">
-                                    <option value="" disabled>Select a department</option>
+                                    <option value="" disabled>Select a college</option>
                                     <option v-for="dept in departments" :key="dept.id" :value="dept.id">
                                         {{ dept.Department_Name }}
                                     </option>

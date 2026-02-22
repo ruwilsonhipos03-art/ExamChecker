@@ -6,7 +6,9 @@
             </button>
 
             <div class="d-flex align-items-center gap-2">
-                <div class="logo-box">A</div>
+                <div class="logo-box">
+                    <img src="../../../../public/images/Logo.png" alt="EduAssess Logo" class="logo-img">
+                </div>
                 <span class="fw-bold fs-5 mb-0">Welcome back, {{ user.first_name }}!</span>
             </div>
         </div>
@@ -51,7 +53,7 @@ const user = ref({});
 
 onMounted(() => {
     // Pull user data from localStorage
-    const savedUser = localStorage.getItem('user_data');
+    const savedUser = localStorage.getItem('user_data') || sessionStorage.getItem('user_data');
     if (savedUser) {
         user.value = JSON.parse(savedUser);
     }
@@ -67,6 +69,8 @@ const userInitials = computed(() => {
 const clearLocalSession = () => {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_data');
+    sessionStorage.removeItem('auth_token');
+    sessionStorage.removeItem('user_data');
     delete axios.defaults.headers.common['Authorization'];
 };
 
@@ -77,19 +81,23 @@ const handleLogout = async () => {
         icon: 'question',
         showCancelButton: true,
         confirmButtonColor: '#10b981',
-        confirmButtonText: 'Yes, logout'
+        confirmButtonText: 'Yes, logout',
+        showLoaderOnConfirm: true,
+        allowOutsideClick: () => !window.Swal.isLoading(),
+        preConfirm: async () => {
+            try {
+                await axios.post('/api/logout');
+            } catch (error) {
+                console.error('Logout API failed:', error);
+            }
+            return true;
+        }
     });
 
     if (result.isConfirmed) {
-        window.Swal.close();
         clearLocalSession();
         await router.push('/login');
         window.Toast.fire({ icon: 'success', title: 'Signed out' });
-
-        // Fire-and-forget backend revoke so UI logout is instant.
-        axios.post('/api/logout').catch((error) => {
-            console.error('Logout API failed:', error);
-        });
     }
 };
 </script>
@@ -103,15 +111,19 @@ const handleLogout = async () => {
 }
 
 .logo-box {
-    width: 38px;
-    height: 38px;
-    background: #10b981;
-    color: white;
-    border-radius: 10px;
+    width: 52px;
+    height: 52px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: bold;
+    overflow: hidden;
+}
+
+.logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .avatar {

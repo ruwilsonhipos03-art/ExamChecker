@@ -1,7 +1,7 @@
 <template>
     <div>
         <h2 class="fw-bold mb-1">Entrance Examiner Students Management</h2>
-        <p class="text-muted">Students who already took the exam.</p>
+        <p class="text-muted">Registered students who have not taken the screening exam yet.</p>
 
         <div class="row g-4 mt-2 mb-4">
             <div class="col-md-3" v-for="(card, idx) in counterCards" :key="idx">
@@ -27,11 +27,11 @@
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label fw-semibold">Result</label>
+                        <label class="form-label fw-semibold">Status</label>
                         <select v-model="filters.result" class="form-select">
                             <option value="">All</option>
-                            <option value="Passed">Passed</option>
-                            <option value="Failed">Failed</option>
+                            <option value="scheduled">Scheduled</option>
+                            <option value="missed">Missed</option>
                         </select>
                     </div>
                     <div class="col-md-2">
@@ -39,8 +39,7 @@
                         <select v-model="filters.sortBy" class="form-select">
                             <option value="student_full_name">Name</option>
                             <option value="exam_name">Exam</option>
-                            <option value="total_score">Score</option>
-                            <option value="result">Result</option>
+                            <option value="exam_status">Status</option>
                         </select>
                     </div>
                 </div>
@@ -54,28 +53,20 @@
                             <th>Student Fullname</th>
                             <th>Exam</th>
                             <th>Status</th>
-                            <th class="text-end">Total Score</th>
-                            <th class="text-center">Result</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-if="loading">
-                            <td colspan="6" class="text-center py-4 text-muted">Loading students...</td>
+                            <td colspan="4" class="text-center py-4 text-muted">Loading students...</td>
                         </tr>
                         <tr v-else-if="filteredStudents.length === 0">
-                            <td colspan="6" class="text-center py-4 text-muted">No students found.</td>
+                            <td colspan="4" class="text-center py-4 text-muted">No students found.</td>
                         </tr>
                         <tr v-else v-for="(student, index) in filteredStudents" :key="student.id">
                             <td>{{ index + 1 }}</td>
                             <td class="fw-semibold">{{ student.student_full_name }}</td>
                             <td>{{ student.exam_name }}</td>
                             <td class="text-capitalize">{{ student.exam_status }}</td>
-                            <td class="text-end">{{ student.total_score }}</td>
-                            <td class="text-center">
-                                <span class="badge" :class="student.result === 'Passed' ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'">
-                                    {{ student.result }}
-                                </span>
-                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -130,7 +121,7 @@ const filteredStudents = computed(() => {
     }
 
     if (filters.value.result) {
-        result = result.filter((row) => row.result === filters.value.result);
+        result = result.filter((row) => row.exam_status === filters.value.result);
     }
 
     const key = filters.value.sortBy;

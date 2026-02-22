@@ -47,16 +47,20 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import { Html5Qrcode } from "html5-qrcode";
+import { useRouter } from 'vue-router';
 
 const currentTime = ref('');
 const firstName = ref('Admin');
 const isLoading = ref(true);
+const user = ref({ email_verified_at: null });
 let html5QrCode = null;
 let statsRefreshTimer = null;
+const router = useRouter();
+const isEmailVerified = computed(() => Boolean(user.value?.email_verified_at));
 
 const stats = ref([
     { label: 'Exams Taken', value: '0', icon: 'bi-file-earmark-text', colorClass: 'bg-emerald-light text-emerald', key: 'exams_taken' },
@@ -69,6 +73,23 @@ const stats = ref([
  * SweetAlert2 Modal with Integrated Camera
  */
 const openScannerModal = () => {
+    if (!isEmailVerified.value) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Email verification required',
+            text: 'Verify your email first before scanning an answer sheet.',
+            showCancelButton: true,
+            confirmButtonText: 'Go to Profile',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#10b981'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                router.push('/student/profile');
+            }
+        });
+        return;
+    }
+
     Swal.fire({
         title: 'Scan QR Code',
         html: `
@@ -165,7 +186,15 @@ onMounted(() => {
     const savedUser = localStorage.getItem('user_data');
     if (savedUser) {
         const parsedUser = JSON.parse(savedUser);
+        user.value = parsedUser;
         firstName.value = parsedUser?.first_name || 'Student';
+    } else {
+        const sessionUser = sessionStorage.getItem('user_data');
+        if (sessionUser) {
+            const parsedUser = JSON.parse(sessionUser);
+            user.value = parsedUser;
+            firstName.value = parsedUser?.first_name || 'Student';
+        }
     }
 
     loadStats();

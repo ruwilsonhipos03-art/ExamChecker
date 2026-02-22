@@ -28,8 +28,8 @@ const setAuthHeader = (token) => {
     }
 };
 
-// 2. Load token from LocalStorage immediately on page refresh
-const savedToken = localStorage.getItem('auth_token');
+// 2. Load token from LocalStorage or SessionStorage immediately on page refresh
+const savedToken = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
 if (savedToken) {
     setAuthHeader(savedToken);
 }
@@ -42,6 +42,8 @@ window.axios.interceptors.response.use(
             // Token is invalid or expired
             localStorage.removeItem('auth_token');
             localStorage.removeItem('user_data');
+            sessionStorage.removeItem('auth_token');
+            sessionStorage.removeItem('user_data');
             setAuthHeader(null);
             // Only redirect if we aren't already on the login page to avoid loops
             if (window.location.pathname !== '/login') {

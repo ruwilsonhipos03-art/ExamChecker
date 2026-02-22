@@ -4,12 +4,12 @@
             <div class="card-body p-4">
                 <div class="row align-items-center">
                     <div class="col">
-                        <h4 class="fw-bold mb-1 text-dark">Department Management</h4>
-                        <p class="text-muted small mb-0">Organize and manage institutional departments</p>
+                        <h4 class="fw-bold mb-1 text-dark">College Management</h4>
+                        <p class="text-muted small mb-0">Organize and manage institutional colleges</p>
                     </div>
                     <div class="col-auto">
                         <button @click="openModal()" class="btn btn-emerald fw-bold px-4 shadow-sm">
-                            <i class="bi bi-plus-lg me-2"></i> ADD DEPARTMENT
+                            <i class="bi bi-plus-lg me-2"></i> ADD COLLEGE
                         </button>
                     </div>
                 </div>
@@ -22,7 +22,7 @@
                     <div class="input-group input-group-sm w-25">
                         <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
                         <input type="text" v-model="searchQuery" class="form-control border-start-0 ps-0"
-                            placeholder="Search departments...">
+                            placeholder="Search colleges...">
                     </div>
                 </div>
 
@@ -31,7 +31,7 @@
                         <thead class="bg-light">
                             <tr>
                                 <th class="ps-4 py-3 text-secondary small fw-bold">No.</th>
-                                <th class="py-3 text-secondary small fw-bold">DEPARTMENT NAME</th>
+                                <th class="py-3 text-secondary small fw-bold">COLLEGE NAME</th>
                                 <th class="py-3 text-secondary small fw-bold">CREATED AT</th>
                                 <th class="pe-4 py-3 text-end text-secondary small fw-bold">ACTIONS</th>
                             </tr>
@@ -42,7 +42,7 @@
                                     <div class="spinner-border text-emerald" role="status">
                                         <span class="visually-hidden">Loading...</span>
                                     </div>
-                                    <div class="mt-2 text-muted small">Loading departments...</div>
+                                    <div class="mt-2 text-muted small">Loading colleges...</div>
                                 </td>
                             </tr>
 
@@ -73,7 +73,7 @@
                                 </tr>
 
                                 <tr v-if="filteredDepartments.length === 0">
-                                    <td colspan="4" class="text-center py-5 text-muted">No departments found.</td>
+                                    <td colspan="4" class="text-center py-5 text-muted">No colleges found.</td>
                                 </tr>
                             </template>
                         </tbody>
@@ -86,17 +86,17 @@
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content border-0 shadow">
                     <div class="modal-header bg-emerald text-white border-0">
-                        <h5 class="modal-title fw-bold">{{ editMode ? 'Edit Department' : 'Add New Department' }}</h5>
+                        <h5 class="modal-title fw-bold">{{ editMode ? 'Edit College' : 'Add New College' }}</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
                     <form @submit.prevent="saveDepartment">
                         <div class="modal-body p-4">
                             <div class="mb-3">
-                                <label class="form-label small fw-bold text-secondary text-uppercase">Department
+                                <label class="form-label small fw-bold text-secondary text-uppercase">College
                                     Name</label>
                                 <input v-model="form.Department_Name" type="text"
                                     class="form-control form-control-lg border-2"
-                                    placeholder="e.g. Department of Information Technology" required
+                                    placeholder="e.g. College of Information Technology" required
                                     :disabled="isSaving">
                             </div>
                         </div>
@@ -190,10 +190,10 @@ const saveDepartment = async () => {
     try {
         if (editMode.value) {
             await axios.put(`/api/admin/departments/${currentId.value}`, form);
-            Toast.fire({ icon: 'success', title: 'Department updated successfully' });
+            Toast.fire({ icon: 'success', title: 'College updated successfully' });
         } else {
             await axios.post('/api/admin/departments', form);
-            Toast.fire({ icon: 'success', title: 'New department added' });
+            Toast.fire({ icon: 'success', title: 'New college added' });
         }
         modalInstance.hide();
         await fetchDepartments();
@@ -211,7 +211,7 @@ const saveDepartment = async () => {
 
 const deleteDepartment = async (dept) => {
     const result = await Swal.fire({
-        title: 'Delete Department?',
+        title: 'Delete College?',
         text: `Are you sure you want to delete "${dept.Department_Name}"? This action cannot be undone.`,
         icon: 'warning',
         showCancelButton: true,
@@ -226,12 +226,12 @@ const deleteDepartment = async (dept) => {
         try {
             await axios.delete(`/api/admin/departments/${dept.id}`);
             await fetchDepartments();
-            Toast.fire({ icon: 'success', title: 'Department has been deleted' });
+            Toast.fire({ icon: 'success', title: 'College has been deleted' });
         } catch (error) {
             Swal.fire({
                 icon: 'error',
                 title: 'Delete Failed',
-                text: error.response?.data?.message || 'Could not delete the department.',
+                text: error.response?.data?.message || 'Could not delete the college.',
                 confirmButtonColor: '#10b981'
             });
         } finally {

@@ -48,15 +48,6 @@
                         </div>
                     </div>
 
-                    <div class="mb-3 text-start">
-                        <label class="form-label small fw-bold text-secondary text-uppercase">New Password</label>
-                        <input v-model="newPassword" type="password" class="form-control" required>
-                    </div>
-                    <div class="mb-4 text-start">
-                        <label class="form-label small fw-bold text-secondary text-uppercase">Confirm Password</label>
-                        <input v-model="confirmPassword" type="password" class="form-control" required>
-                    </div>
-
                     <button @click="handleVerifyCode" class="btn btn-emerald w-100 py-2 fw-bold mb-3">
                         VERIFY & RESET
                     </button>
@@ -80,12 +71,12 @@
 import { ref, reactive, computed, onUnmounted, nextTick } from 'vue';
 import axios from 'axios';
 import Swal from 'sweetalert2';
+import { useRouter } from 'vue-router';
 
+const router = useRouter();
 const email = ref('');
 const isCodeSent = ref(false);
 const otp = reactive(['', '', '', '', '', '']);
-const newPassword = ref('');
-const confirmPassword = ref('');
 const otpFields = ref([]); // Stores references to the input elements
 const timer = ref(0);
 let interval = null;
@@ -131,8 +122,6 @@ const handleSendCode = async () => {
 const goBack = () => {
     isCodeSent.value = false;
     otp.fill(''); // Clear code if they go back
-    newPassword.value = '';
-    confirmPassword.value = '';
 };
 
 // AUTO-ADVANCE & NUMERIC FILTER
@@ -170,33 +159,48 @@ const handleVerifyCode = async () => {
         });
     }
 
-    if (newPassword.value.length < 8) {
-        return Swal.fire({
-            icon: 'warning',
-            title: 'Weak Password',
-            text: 'Password must be at least 8 characters.',
-            confirmButtonColor: '#10b981'
-        });
-    }
-
-    if (newPassword.value !== confirmPassword.value) {
-        return Swal.fire({
-            icon: 'warning',
-            title: 'Mismatch',
-            text: 'Passwords do not match.',
-            confirmButtonColor: '#10b981'
-        });
-    }
-
     try {
+        const { value: formValues } = await Swal.fire({
+            title: 'Set New Password',
+            html: `
+                <div class="text-start">
+                    <label class="form-label small fw-bold text-secondary text-uppercase">New Password</label>
+                    <input id="swal-new-password" type="password" class="form-control mb-3" placeholder="Minimum 8 characters">
+                    <label class="form-label small fw-bold text-secondary text-uppercase">Confirm Password</label>
+                    <input id="swal-confirm-password" type="password" class="form-control" placeholder="Re-enter password">
+                </div>
+            `,
+            focusConfirm: false,
+            confirmButtonText: 'Reset Password',
+            confirmButtonColor: '#10b981',
+            showCancelButton: true,
+            preConfirm: () => {
+                const newPassword = document.getElementById('swal-new-password').value;
+                const confirmPassword = document.getElementById('swal-confirm-password').value;
+                if (!newPassword || newPassword.length < 8) {
+                    Swal.showValidationMessage('Password must be at least 8 characters.');
+                    return false;
+                }
+                if (newPassword !== confirmPassword) {
+                    Swal.showValidationMessage('Passwords do not match.');
+                    return false;
+                }
+                return { newPassword, confirmPassword };
+            }
+        });
+
+        if (!formValues) {
+            return;
+        }
+
         await axios.post('/api/forgot-password/reset', {
             email: email.value,
             code,
-            password: newPassword.value,
-            password_confirmation: confirmPassword.value
+            password: formValues.newPassword,
+            password_confirmation: formValues.confirmPassword
         });
 
-        Swal.fire({
+        await Swal.fire({
             icon: 'success',
             title: 'Password Updated',
             text: 'You can now log in with your new password.',
@@ -205,8 +209,7 @@ const handleVerifyCode = async () => {
 
         isCodeSent.value = false;
         otp.fill('');
-        newPassword.value = '';
-        confirmPassword.value = '';
+        router.push('/login');
     } catch (e) {
         Swal.fire({
             icon: 'error',

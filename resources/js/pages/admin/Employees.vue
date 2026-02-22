@@ -22,7 +22,7 @@
                     <div class="input-group input-group-sm w-25">
                         <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
                         <input type="text" v-model="searchQuery" class="form-control border-start-0 ps-0"
-                            placeholder="Search name, ID, or dept...">
+                            placeholder="Search name, ID, or college...">
                     </div>
                 </div>
 
@@ -32,7 +32,7 @@
                             <tr>
                                 <th class="ps-4 py-3 text-secondary small fw-bold">FULL NAME</th>
                                 <th class="py-3 text-secondary small fw-bold">ROLE(S)</th>
-                                <th class="py-3 text-secondary small fw-bold">DEPT / OFFICE</th>
+                                <th class="py-3 text-secondary small fw-bold">COLLEGE / OFFICE</th>
                                 <th class="py-3 text-secondary small fw-bold">USERNAME</th>
                                 <th class="pe-4 py-3 text-end text-secondary small fw-bold">ACTIONS</th>
                             </tr>
@@ -122,8 +122,8 @@
                                                     value="dept_head" id="roleDept" v-model="roleSelectionType"
                                                     @change="handleRoleTypeChange">
                                                 <label class="form-check-label fw-bold text-dark"
-                                                    for="roleDept">Department
-                                                    Head</label>
+                                                    for="roleDept">College
+                                                    Dean</label>
                                             </div>
                                             <div class="vr mx-1 d-none d-md-block" style="height: 20px;"></div>
                                             <div class="form-check">
@@ -156,7 +156,7 @@
                                 </div>
 
                                 <div class="col-md-6">
-                                    <label class="form-label small fw-bold text-uppercase">Department</label>
+                                    <label class="form-label small fw-bold text-uppercase">College</label>
                                     <select v-model="form.department_id" class="form-select">
                                         <option value="">None / Unassigned</option>
                                         <option v-for="dept in departments" :key="dept.id" :value="dept.id">{{

@@ -166,7 +166,7 @@
         <!-- Header -->
         <div class="header">
             <div class="qr">
-                <img src="data:image/svg+xml;base64,{{ $sheet['sheetQr'] }}" width="100" height="100">
+                <img src="data:{{ $sheet['sheetQrMime'] ?? 'image/png' }};base64,{{ $sheet['sheetQr'] }}" width="100" height="100">
                 <div class="qr-label">Sheet Code</div>
             </div>
 

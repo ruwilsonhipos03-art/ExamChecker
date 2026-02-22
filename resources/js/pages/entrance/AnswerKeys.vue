@@ -29,11 +29,13 @@
                     </thead>
                     <tbody>
                         <tr v-if="isLoading">
-                            <td colspan="3" class="text-center py-5">
+                            <td colspan="4" class="text-center py-5">
                                 <div class="spinner-border text-emerald"></div>
                             </td>
                         </tr>
-                        <tr v-else v-for="key in answerKeys" :key="key.id">
+                        <tr v-else v-for="key in answerKeys" :key="key.id"
+                            :class="{ 'clickable-row': currentUserRole === 'entrance_examiner' }"
+                            @click="onRowClick(key)">
                             <td class="ps-4">
                                 <div class="fw-bold text-dark">{{ key.exam?.Exam_Title || 'N/A' }}</div>
                             </td>
@@ -53,9 +55,12 @@
                             </td>
                             <td class="pe-4 text-end">
                                 <div class="btn-group shadow-sm rounded-3">
-                                    <button @click="openModal(key)" class="btn btn-light-success border-0 px-3"><i
+                                    <button @click.stop="downloadKey(key.id, key.exam?.Exam_Title)" class="btn btn-light-primary border-0 px-3" title="Download">
+                                        <i class="bi bi-download"></i>
+                                    </button>
+                                    <button @click.stop="openModal(key)" class="btn btn-light-success border-0 px-3"><i
                                             class="bi bi-pencil-square"></i></button>
-                                    <button @click="deleteKey(key.id)" class="btn btn-light-danger border-0 px-3"><i
+                                    <button @click.stop="deleteKey(key.id)" class="btn btn-light-danger border-0 px-3"><i
                                             class="bi bi-trash3"></i></button>
                                 </div>
                             </td>
@@ -215,6 +220,7 @@ const focusedItem = ref(null);
 const hasAttemptedSave = ref(false);
 const touchedAnswers = ref({});
 const subjectError = ref('');
+const currentUserRole = ref('');
 
 const modalRef = ref(null);
 let modalInstance = null;
@@ -523,7 +529,73 @@ const deleteKey = async (id) => {
     }
 };
 
+const openAnswerKeyPreview = async (id, examTitle = 'AnswerKey', allowDownload = true) => {
+    let previewUrl = null;
+
+    try {
+        const response = await axios.get(`/api/answer-keys/${id}/download`, {
+            responseType: 'blob'
+        });
+
+        const pdfBlob = new Blob([response.data], { type: 'application/pdf' });
+        previewUrl = URL.createObjectURL(pdfBlob);
+
+        const result = await Swal.fire({
+            title: 'Answer Key Preview',
+            html: `
+                <div style="height:65vh;">
+                    <iframe src="${previewUrl}" style="width:100%;height:100%;border:1px solid #e5e7eb;border-radius:8px;"></iframe>
+                </div>
+            `,
+            width: 960,
+            showCancelButton: allowDownload,
+            confirmButtonText: allowDownload ? 'Download' : 'Close',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#10b981'
+        });
+
+        if (allowDownload && result.isConfirmed) {
+            const downloadName = `${String(examTitle || 'AnswerKey').replace(/\s+/g, '_')}.pdf`;
+            const link = document.createElement('a');
+            link.href = previewUrl;
+            link.download = downloadName;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        }
+    } catch (error) {
+        await Swal.fire({
+            icon: 'error',
+            title: 'Download failed',
+            text: 'Unable to load answer key preview. Please try again.',
+            confirmButtonColor: '#ef4444'
+        });
+    } finally {
+        if (previewUrl) {
+            URL.revokeObjectURL(previewUrl);
+        }
+    }
+};
+
+const downloadKey = async (id, examTitle = 'AnswerKey') => {
+    await openAnswerKeyPreview(id, examTitle, true);
+};
+
+const onRowClick = async (key) => {
+    if (currentUserRole.value !== 'entrance_examiner') {
+        return;
+    }
+    await openAnswerKeyPreview(key.id, key.exam?.Exam_Title || 'AnswerKey', false);
+};
+
 onMounted(() => {
+    try {
+        const userRaw = localStorage.getItem('user_data') || sessionStorage.getItem('user_data');
+        currentUserRole.value = userRaw ? (JSON.parse(userRaw)?.role || '') : '';
+    } catch (e) {
+        currentUserRole.value = '';
+    }
+
     fetchData();
     modalInstance = new Modal(modalRef.value);
 });
@@ -626,5 +698,14 @@ onMounted(() => {
 .btn-light-danger {
     color: #ef4444;
     background: #fef2f2;
+}
+
+.btn-light-primary {
+    color: #2563eb;
+    background: #eff6ff;
+}
+
+.clickable-row {
+    cursor: pointer;
 }
 </style>

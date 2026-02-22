@@ -1,12 +1,12 @@
 <template>
     <div class="auth-wrapper d-flex align-items-center justify-content-center bg-light">
         <div class="card shadow-sm border-0 auth-card">
-            <div class="card-body p-5">
+            <div class="card-body p-3">
                 <div class="text-center mb-4">
                     <div class="brand-icon mb-3 mx-auto">
-                        <i class="bi bi-qr-code-scan text-white fs-3"></i>
+                        <img src="../../../../public/images/Logo.png" alt="EduAssess Logo" class="brand-logo">
                     </div>
-                    <h3 class="fw-bold">Welcome back! 👋</h3>
+                    <h3 class="fw-bold">Welcome to Edu Assess!</h3>
                     <p class="text-muted small">Please enter your details to sign in.</p>
                 </div>
 
@@ -24,8 +24,23 @@
                                 Forgot Password?
                             </router-link>
                         </div>
-                        <input v-model="form.password" type="password" class="form-control shadow-none border-2"
-                            required placeholder="••••••••" :disabled="loading">
+                        <div class="input-group">
+                            <input v-model="form.password" :type="showPassword ? 'text' : 'password'"
+                                class="form-control shadow-none border-2" required placeholder="••••••••"
+                                :disabled="loading">
+                            <button class="btn btn-outline-secondary" type="button"
+                                @click="showPassword = !showPassword" :disabled="loading"
+                                aria-label="Toggle password visibility">
+                                <i :class="showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input id="rememberMe" v-model="rememberMe" class="form-check-input" type="checkbox"
+                            :disabled="loading">
+                        <label class="form-check-label small text-muted" for="rememberMe">
+                            Remember me
+                        </label>
                     </div>
 
                     <button type="submit" class="btn btn-emerald w-100 py-2 fw-bold mt-2 shadow-sm" :disabled="loading">
@@ -54,6 +69,8 @@ import Swal from 'sweetalert2';
 
 const router = useRouter();
 const loading = ref(false);
+const rememberMe = ref(false);
+const showPassword = ref(false);
 
 const form = reactive({
     login: '',
@@ -66,7 +83,7 @@ const form = reactive({
  */
 const roleRoutes = {
     'admin': '/admin/dashboard',
-    'dept_head': '/department-head/dashboard',
+    'dept_head': '/college-dean/dashboard',
     'instructor': '/instructor/dashboard',
     'entrance_examiner': '/entrance/dashboard',
     'student': '/student/dashboard'
@@ -84,9 +101,14 @@ const handleLogin = async () => {
 
         const { token, user } = res.data;
 
-        // 2. Persist Session in Local Storage
-        localStorage.setItem('auth_token', token);
-        localStorage.setItem('user_data', JSON.stringify(user));
+        const storage = rememberMe.value ? localStorage : sessionStorage;
+        const otherStorage = rememberMe.value ? sessionStorage : localStorage;
+
+        // 2. Persist Session
+        storage.setItem('auth_token', token);
+        storage.setItem('user_data', JSON.stringify(user));
+        otherStorage.removeItem('auth_token');
+        otherStorage.removeItem('user_data');
 
         // 3. Set Global Axios Authorization Header for immediate subsequent calls
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -98,6 +120,7 @@ const handleLogin = async () => {
 
         // 5. Role-based Redirection
         const targetPath = roleRoutes[user.role];
+        const requiresEmailVerification = user.role === 'student' && !user.email_verified_at;
 
         if (targetPath) {
             if (window.Toast) {
@@ -106,11 +129,22 @@ const handleLogin = async () => {
                     title: `Welcome back, ${user.first_name}!`
                 });
             }
-            router.push(targetPath);
+
+            if (requiresEmailVerification) {
+                await router.push('/student/profile');
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Verify your email',
+                    text: 'Please verify your email first before scanning an answer sheet.',
+                    confirmButtonColor: '#10b981'
+                });
+            } else {
+                await router.push(targetPath);
+            }
         } else {
             console.error('Unknown role encountered:', user.role);
             // Fallback: If role is unknown, maybe they shouldn't be here
-            router.push('/login');
+            await router.push('/login');
             Swal.fire({
                 icon: 'warning',
                 title: 'Access Restricted',
@@ -138,6 +172,8 @@ const handleLogin = async () => {
 .auth-wrapper {
     min-height: 100vh;
     background: #f0f2f5;
+    padding: 20px;
+    height: fit-content;
     /* Slightly grayer background to make the card pop */
 }
 
@@ -148,18 +184,23 @@ const handleLogin = async () => {
 }
 
 .brand-icon {
-    width: 64px;
-    height: 64px;
-    background-color: #10b981;
+    width: 96px;
+    height: 96px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 1rem;
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+    border-radius: 0.8rem;
+    overflow: hidden;
+}
+
+.brand-logo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .form-control {
-    padding: 0.75rem 1rem;
+    padding: 0.6rem 0.85rem;
     border-color: #e5e7eb;
 }
 

@@ -1,106 +1,135 @@
 <template>
-    <div class="page-container">
-        <h3 class="fw-bold mb-4">Entrance Examiner Reports</h3>
+  <div class="page-container">
+    <h3 class="fw-bold mb-4">Entrance Examiner Reports</h3>
 
-        <div class="card border-0 shadow-sm p-4 rounded-4 mb-3 no-print">
-            <div class="row g-3 align-items-end">
-                <div class="col-md-3">
-                    <label class="form-label fw-semibold">Filter by Exam Title</label>
-                    <select v-model="filters.examTitle" class="form-select">
-                        <option value="">All Exams</option>
-                        <option v-for="title in examTitles" :key="title" :value="title">
-                            {{ title }}
-                        </option>
-                    </select>
-                </div>
-
-                <div class="col-md-3">
-                    <label class="form-label fw-semibold">Search Student Name</label>
-                    <input v-model.trim="filters.name" type="text" class="form-control"
-                        placeholder="Lastname, Firstname..." />
-                </div>
-
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold">Sort By</label>
-                    <select v-model="filters.sortBy" class="form-select">
-                        <option value="student_full_name">Name</option>
-                        <option value="Exam_Title">Exam Title</option>
-                        <option value="math">Math</option>
-                        <option value="english">English</option>
-                        <option value="science">Science</option>
-                        <option value="social_science">Social Science</option>
-                        <option value="total">Total</option>
-                    </select>
-                </div>
-
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold">Order</label>
-                    <select v-model="filters.sortOrder" class="form-select">
-                        <option value="asc">Ascending</option>
-                        <option value="desc">Descending</option>
-                    </select>
-                </div>
-
-                <div class="col-md-2">
-                    <button class="btn btn-success w-100" :disabled="loading || filteredRows.length === 0"
-                        @click="printActiveTable">
-                        <i class="bi bi-printer me-2"></i>Print to PDF
-                    </button>
-                </div>
-            </div>
+    <div class="card border-0 shadow-sm rounded-4 p-4 mb-3">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">Filter by Exam</label>
+          <select v-model="filters.examTitle" class="form-select">
+            <option value="">All Exams</option>
+            <option v-for="title in examTitles" :key="title" :value="title">{{ title }}</option>
+          </select>
         </div>
 
-        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-            <div class="print-meta print-only">
-                <div class="fw-bold fs-5">Entrance Examiner Reports</div>
-                <div class="mt-2">
-                    <span><strong>Exam Filter:</strong> {{ filters.examTitle || 'All' }}</span> |
-                    <span><strong>Sorted by:</strong> {{ readableSortBy }} ({{ filters.sortOrder.toUpperCase()
-                        }})</span>
-                </div>
-                <div><strong>Generated on:</strong> {{ generatedAt }}</div>
-                <hr />
-            </div>
-
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th style="width: 72px;">No.</th>
-                            <th>Student Fullname</th>
-                            <th>Exam Title</th>
-                            <th class="text-end">Math</th>
-                            <th class="text-end">English</th>
-                            <th class="text-end">Science</th>
-                            <th class="text-end">Social Science</th>
-                            <th class="text-end">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-if="loading">
-                            <td colspan="8" class="text-center py-5">
-                                <div class="spinner-border spinner-border-sm text-primary me-2"></div>
-                                Loading reports...
-                            </td>
-                        </tr>
-                        <tr v-else-if="filteredRows.length === 0">
-                            <td colspan="8" class="text-center py-4 text-muted">No records found.</td>
-                        </tr>
-                        <tr v-else v-for="(row, index) in filteredRows" :key="row.id || index">
-                            <td>{{ index + 1 }}</td>
-                            <td class="fw-semibold">{{ row.student_full_name || 'N/A' }}</td>
-                            <td>{{ row.Exam_Title }}</td>
-                            <td class="text-end">{{ row.math ?? 0 }}</td>
-                            <td class="text-end">{{ row.english ?? 0 }}</td>
-                            <td class="text-end">{{ row.science ?? 0 }}</td>
-                            <td class="text-end">{{ row.social_science ?? 0 }}</td>
-                            <td class="text-end fw-bold">{{ row.total ?? 0 }}</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">Search Student</label>
+          <input v-model.trim="filters.name" type="text" class="form-control" placeholder="Lastname, Firstname..." />
         </div>
+
+        <div class="col-md-2">
+          <label class="form-label fw-semibold">Result</label>
+          <select v-model="filters.result" class="form-select">
+            <option value="">All</option>
+            <option value="Passed">Passed</option>
+            <option value="Failed">Failed</option>
+          </select>
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label fw-semibold">Arrange By</label>
+          <select v-model="filters.sort" class="form-select">
+            <option value="student_asc">Student A-Z</option>
+            <option value="student_desc">Student Z-A</option>
+            <option value="total_desc">Total High-Low</option>
+            <option value="total_asc">Total Low-High</option>
+          </select>
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label fw-semibold">Download</label>
+          <input class="form-control" value="Word (.doc)" disabled />
+        </div>
+      </div>
+
+      <div class="row g-2 mt-2">
+        <div class="col-md-2">
+          <button class="btn btn-outline-success w-100" :disabled="loading" @click="loadReports">
+            <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+          </button>
+        </div>
+        <div class="col-md-3">
+          <button class="btn btn-success w-100" :disabled="loading || !filteredRows.length" @click="downloadPrintableFile">
+            <i class="bi bi-download me-1"></i>Download Word
+          </button>
+        </div>
+      </div>
     </div>
+
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th style="width: 72px">No.</th>
+              <th>Student</th>
+              <th>Exam</th>
+              <th class="text-end">Math</th>
+              <th class="text-end">English</th>
+              <th class="text-end">Science</th>
+              <th class="text-end">Social Science</th>
+              <th class="text-end">Total</th>
+              <th>Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="loading">
+              <td colspan="9" class="text-center py-4 text-muted">Loading reports...</td>
+            </tr>
+            <tr v-else-if="filteredRows.length === 0">
+              <td colspan="9" class="text-center py-4 text-muted">No records found.</td>
+            </tr>
+            <tr
+              v-else
+              v-for="(row, index) in filteredRows"
+              :key="row.answer_sheet_id"
+              class="clickable-row"
+              @click="openStudentAnswers(row)"
+            >
+              <td>{{ index + 1 }}</td>
+              <td class="fw-semibold">{{ row.student_full_name }}</td>
+              <td>{{ row.exam_name }}</td>
+              <td class="text-end">{{ row.math }}</td>
+              <td class="text-end">{{ row.english }}</td>
+              <td class="text-end">{{ row.science }}</td>
+              <td class="text-end">{{ row.social_science }}</td>
+              <td class="text-end fw-bold">{{ row.total }}</td>
+              <td>
+                <span class="badge" :class="row.total >= 75 ? 'text-bg-success' : 'text-bg-danger'">
+                  {{ row.total >= 75 ? 'Passed' : 'Failed' }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div v-if="isDetailOpen" class="popup-overlay" @click.self="closeStudentAnswers">
+      <div class="popup-card">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <div>
+            <h5 class="fw-bold mb-1">Student Answer Check (1-100)</h5>
+            <div class="text-muted small">
+              {{ selectedStudent?.student_full_name || '-' }} | {{ selectedStudent?.exam_name || '-' }}
+            </div>
+          </div>
+          <button type="button" class="btn-close" @click="closeStudentAnswers"></button>
+        </div>
+
+        <div v-if="detailLoading" class="text-center text-muted py-4">Loading answer details...</div>
+        <div v-else-if="detailError" class="alert alert-danger py-2 mb-0">{{ detailError }}</div>
+        <div v-else class="answers-grid">
+          <div v-for="item in detailItems" :key="item.question" class="answer-item">
+            <div class="fw-semibold">{{ item.question }}</div>
+            <div :class="item.is_correct ? 'text-success' : 'text-danger'">
+              {{ item.is_correct ? 'Correct' : 'Incorrect' }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -109,132 +138,238 @@ import axios from 'axios';
 
 const loading = ref(false);
 const rows = ref([]);
+const isDetailOpen = ref(false);
+const detailLoading = ref(false);
+const detailError = ref('');
+const selectedStudent = ref(null);
+const detailItems = ref([]);
 
 const filters = ref({
-    examTitle: '',
-    name: '',
-    sortBy: 'student_full_name',
-    sortOrder: 'asc',
+  examTitle: '',
+  name: '',
+  result: '',
+  sort: 'student_asc',
 });
 
-// Extract unique Exam Titles for the dropdown
 const examTitles = computed(() => {
-    if (!rows.value.length) return [];
-    const titles = rows.value.map((row) => row.Exam_Title).filter(Boolean);
-    return [...new Set(titles)].sort((a, b) => a.localeCompare(b));
+  return [...new Set(rows.value.map((row) => row.exam_name).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 });
 
 const filteredRows = computed(() => {
-    let result = [...rows.value];
+  let result = [...rows.value];
 
-    // Filter by Exam Title
-    if (filters.value.examTitle) {
-        result = result.filter((row) => row.Exam_Title === filters.value.examTitle);
-    }
+  if (filters.value.examTitle) {
+    result = result.filter((row) => row.exam_name === filters.value.examTitle);
+  }
 
-    // Filter by Student Name
-    if (filters.value.name) {
-        const search = filters.value.name.toLowerCase();
-        result = result.filter((row) =>
-            row.student_full_name?.toLowerCase().includes(search)
-        );
-    }
+  if (filters.value.name) {
+    const search = filters.value.name.toLowerCase();
+    result = result.filter((row) => String(row.student_full_name || '').toLowerCase().includes(search));
+  }
 
-    // Sorting Logic
-    const key = filters.value.sortBy;
-    const factor = filters.value.sortOrder === 'asc' ? 1 : -1;
+  if (filters.value.result) {
+    result = result.filter((row) => (row.total >= 75 ? 'Passed' : 'Failed') === filters.value.result);
+  }
 
-    result.sort((a, b) => {
-        const first = a[key] ?? '';
-        const second = b[key] ?? '';
+  if (filters.value.sort === 'student_asc') {
+    result.sort((a, b) => String(a.student_full_name || '').localeCompare(String(b.student_full_name || '')));
+  } else if (filters.value.sort === 'student_desc') {
+    result.sort((a, b) => String(b.student_full_name || '').localeCompare(String(a.student_full_name || '')));
+  } else if (filters.value.sort === 'total_desc') {
+    result.sort((a, b) => Number(b.total || 0) - Number(a.total || 0));
+  } else if (filters.value.sort === 'total_asc') {
+    result.sort((a, b) => Number(a.total || 0) - Number(b.total || 0));
+  }
 
-        if (typeof first === 'number' && typeof second === 'number') {
-            return (first - second) * factor;
-        }
-
-        return String(first).localeCompare(String(second)) * factor;
-    });
-
-    return result;
+  return result;
 });
-
-const readableSortBy = computed(() => {
-    const labels = {
-        student_full_name: 'Name',
-        Exam_Title: 'Exam Title',
-        math: 'Math',
-        english: 'English',
-        science: 'Science',
-        social_science: 'Social Science',
-        total: 'Total',
-    };
-    return labels[filters.value.sortBy] || 'Name';
-});
-
-const generatedAt = computed(() => new Date().toLocaleString());
-
-const printActiveTable = () => {
-    window.print();
-};
 
 const loadReports = async () => {
-    loading.value = true;
-    try {
-        // Adjust the URL if needed based on your API environment
-        const { data } = await axios.get('/api/entrance/reports/examinee-results');
+  loading.value = true;
+  try {
+    const { data } = await axios.get('/api/entrance/reports/examinee-results');
+    rows.value = Array.isArray(data?.data) ? data.data : [];
+  } catch (error) {
+    rows.value = [];
+  } finally {
+    loading.value = false;
+  }
+};
 
-        // Based on your JSON, data is the array, or inside data.data
-        rows.value = Array.isArray(data) ? data : (data?.data || []);
-    } catch (error) {
-        console.error("Error loading reports:", error);
-        rows.value = [];
-    } finally {
-        loading.value = false;
-    }
+const openStudentAnswers = async (row) => {
+  isDetailOpen.value = true;
+  detailLoading.value = true;
+  detailError.value = '';
+  detailItems.value = [];
+  selectedStudent.value = row;
+
+  try {
+    const { data } = await axios.get(`/api/entrance/reports/examinee-results/${row.answer_sheet_id}`);
+    const apiItems = Array.isArray(data?.data?.items) ? data.data.items : [];
+
+    detailItems.value = Array.from({ length: 100 }, (_, i) => {
+      const question = i + 1;
+      const item = apiItems.find((it) => Number(it?.question) === question);
+
+      return {
+        question,
+        is_correct: Boolean(item?.is_correct),
+      };
+    });
+  } catch (error) {
+    detailError.value = error?.response?.data?.message || 'Failed to load student answers.';
+  } finally {
+    detailLoading.value = false;
+  }
+};
+
+const closeStudentAnswers = () => {
+  isDetailOpen.value = false;
+  detailLoading.value = false;
+  detailError.value = '';
+  selectedStudent.value = null;
+  detailItems.value = [];
+};
+
+const downloadPrintableFile = () => {
+  if (!filteredRows.value.length) return;
+
+  const now = new Date();
+  const generatedAt = now.toLocaleString();
+
+  const tableRows = filteredRows.value
+    .map((row, index) => {
+      const result = row.total >= 75 ? 'Passed' : 'Failed';
+      return `<tr>
+        <td>${index + 1}</td>
+        <td>${escapeHtml(row.student_full_name || '')}</td>
+        <td>${escapeHtml(row.exam_name || '')}</td>
+        <td>${Number(row.math || 0)}</td>
+        <td>${Number(row.english || 0)}</td>
+        <td>${Number(row.science || 0)}</td>
+        <td>${Number(row.social_science || 0)}</td>
+        <td>${Number(row.total || 0)}</td>
+        <td>${result}</td>
+      </tr>`;
+    })
+    .join('');
+
+  const html = `
+    <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>Entrance Examiner Reports</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 28px 36px; }
+          h2 { text-align: center; margin: 8px 0 22px; font-size: 40px; font-weight: 700; }
+          .meta { margin-bottom: 14px; font-size: 15px; color: #222; line-height: 1.45; }
+          table { border-collapse: collapse; width: 100%; font-size: 18px; }
+          th, td { border: 1px solid #aeb9c7; padding: 8px 10px; text-align: center; }
+          th { background: #dde3eb; font-weight: 700; }
+          td:nth-child(2), td:nth-child(3) { text-align: left; }
+        </style>
+      </head>
+      <body>
+        <h2>Entrance Examiner Reports</h2>
+        <div class="meta">
+          Generated: ${escapeHtml(generatedAt)}<br/>
+          Exam Filter: ${escapeHtml(filters.value.examTitle || 'All')}<br/>
+          Result Filter: ${escapeHtml(filters.value.result || 'All')}<br/>
+          Sort: ${escapeHtml(readableSort(filters.value.sort))}
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>No.</th>
+              <th>Student</th>
+              <th>Exam</th>
+              <th>Math</th>
+              <th>English</th>
+              <th>Science</th>
+              <th>Social Science</th>
+              <th>Total</th>
+              <th>Result</th>
+            </tr>
+          </thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </body>
+    </html>
+  `;
+
+  const blob = new Blob([html], {
+    type: 'application/msword;charset=utf-8',
+  });
+  const fileName = `entrance_reports_${now.toISOString().slice(0, 10)}.doc`;
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
+const readableSort = (value) => {
+  const labels = {
+    student_asc: 'Student A-Z',
+    student_desc: 'Student Z-A',
+    total_desc: 'Total High-Low',
+    total_asc: 'Total Low-High',
+  };
+  return labels[value] || labels.student_asc;
+};
+
+const escapeHtml = (value) => {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
 };
 
 onMounted(loadReports);
 </script>
 
 <style scoped>
-.print-only {
-    display: none;
+.clickable-row {
+  cursor: pointer;
 }
 
-@media print {
-    .no-print {
-        display: none !important;
-    }
+.popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 2000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+}
 
-    .print-only {
-        display: block !important;
-    }
+.popup-card {
+  width: min(960px, 100%);
+  max-height: 88vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.2);
+  padding: 20px;
+}
 
-    .page-container {
-        padding: 0 !important;
-        margin: 0 !important;
-    }
+.answers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
 
-    .card {
-        border: none !important;
-    }
-
-    .table {
-        width: 100% !important;
-        border-collapse: collapse !important;
-        font-size: 11px;
-        /* Smaller font for PDF fit */
-    }
-
-    .table th {
-        background-color: #f8f9fa !important;
-        -webkit-print-color-adjust: exact;
-    }
-
-    .table td,
-    .table th {
-        border: 1px solid #dee2e6 !important;
-        padding: 4px 8px !important;
-    }
+.answer-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px;
+  text-align: center;
 }
 </style>

@@ -1,18 +1,18 @@
 import { createRouter, createWebHistory } from "vue-router";
 
 const routes = [
-    { 
-        path: "/login", 
+    {
+        path: "/login",
         name: "Login",
-        component: () => import("../pages/Auth/Login.vue") 
+        component: () => import("../pages/Auth/Login.vue")
     },
-    { 
-        path: "/register", 
-        component: () => import("../pages/Auth/Register.vue") 
+    {
+        path: "/register",
+        component: () => import("../pages/Auth/Register.vue")
     },
-    { 
-        path: "/forgot-password", 
-        component: () => import("../pages/Auth/ForgotPassword.vue") 
+    {
+        path: "/forgot-password",
+        component: () => import("../pages/Auth/ForgotPassword.vue")
     },
     {
         path: "/",
@@ -29,7 +29,7 @@ const routes = [
                     { path: "dashboard", component: () => import("../pages/admin/Dashboard.vue") },
                     { path: "employees", component: () => import("../pages/admin/Employees.vue") },
                     { path: "offices", component: () => import("../pages/admin/Offices.vue") },
-                    { path: "departments", component: () => import("../pages/admin/Departments.vue") },
+                    { path: "colleges", component: () => import("../pages/admin/Departments.vue") },
                     { path: "programs", component: () => import("../pages/admin/Programs.vue") },
                     { path: "subjects", component: () => import("../pages/admin/Subjects.vue") },
                     { path: "schedules", component: () => import("../pages/admin/Schedules.vue") },
@@ -37,11 +37,11 @@ const routes = [
                 ],
             },
 
-            // --- DEPARTMENT HEAD ROUTES ---
+            // --- College Dean ROUTES ---
             {
-                path: "department-head",
+                path: "college-dean",
                 component: () => import("../layouts/depthead.vue"),
-                redirect: "/department-head/dashboard",
+                redirect: "/college-dean/dashboard",
                 meta: { requiresAuth: true, role: "dept_head" },
                 children: [
                     { path: "dashboard", name: "ph-dashboard", component: () => import("../pages/depthead/Dashboard.vue") },
@@ -69,6 +69,7 @@ const routes = [
                     { path: "students", component: () => import("../pages/entrance/Students.vue") },
                     { path: "exams", component: () => import("../pages/entrance/Exams.vue") },
                     { path: "keys", component: () => import("../pages/entrance/AnswerKeys.vue") },
+                    { path: "program-requirements", component: () => import("../pages/admin/ProgramRequirements.vue") },
                     { path: "generate", component: () => import("../pages/entrance/GenerateSheets.vue") },
                     { path: "reports", component: () => import("../pages/entrance/Reports.vue") },
                 ],
@@ -104,6 +105,7 @@ const routes = [
                     { path: "recommendations", component: () => import("../pages/student/Recommendations.vue") },
                     { path: "reports", component: () => import("../pages/student/Reports.vue") },
                     { path: "schedules", component: () => import("../pages/student/Schedules.vue") },
+                    { path: "profile", component: () => import("../pages/student/Profile.vue") },
                 ],
             },
         ],
@@ -117,9 +119,9 @@ const router = createRouter({
 
 // --- NAVIGATION GUARD ---
 router.beforeEach((to, from, next) => {
-    const token = localStorage.getItem('auth_token');
-    const userData = localStorage.getItem('user_data');
-    
+    const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+    const userData = localStorage.getItem('user_data') || sessionStorage.getItem('user_data');
+
     // Safety check for user data
     let user = {};
     try {
@@ -146,7 +148,7 @@ router.beforeEach((to, from, next) => {
                 });
             }
             // User role doesn't match the route, redirect to their home
-            return next('/login'); 
+            return next('/login');
         }
     }
 
@@ -154,7 +156,7 @@ router.beforeEach((to, from, next) => {
     if (token && (to.path === '/login' || to.path === '/register')) {
         const roleRoutes = {
             admin: '/admin/dashboard',
-            dept_head: '/department-head/dashboard',
+            dept_head: '/college-dean/dashboard',
             instructor: '/instructor/dashboard',
             entrance_examiner: '/entrance/dashboard',
             student: '/student/dashboard'
