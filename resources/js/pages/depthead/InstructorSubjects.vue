@@ -2,8 +2,8 @@
   <div class="container-fluid py-3">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <div>
-        <h3 class="fw-bold mb-1">Student Subject Assignment</h3>
-        <p class="text-muted mb-0 small">Assign subjects to students under your department</p>
+        <h3 class="fw-bold mb-1">Instructor Subject Assignment</h3>
+        <p class="text-muted mb-0 small">Assign subjects to instructors in your department</p>
       </div>
       <button class="btn btn-outline-success btn-sm" @click="loadAll" :disabled="loadingAny">
         <span v-if="loadingAny" class="spinner-border spinner-border-sm me-2"></span>
@@ -16,18 +16,11 @@
         <h6 class="fw-bold">Add Assignment</h6>
         <div class="row g-2">
           <div class="col-md-5">
-            <label class="form-label small text-muted">Student</label>
-            <input
-              v-model="studentPickerSearch"
-              type="text"
-              class="form-control form-control-sm mb-2"
-              placeholder="Search student name..."
-              :disabled="saving"
-            >
-            <select class="form-select" v-model="form.student_user_id" :disabled="saving">
-              <option value="" disabled>Select student</option>
-              <option v-for="student in filteredStudentOptions" :key="student.id" :value="student.id">
-                {{ student.full_name }} - {{ student.program_name || '-' }}
+            <label class="form-label small text-muted">Instructor</label>
+            <select class="form-select" v-model="form.instructor_user_id" :disabled="saving">
+              <option value="" disabled>Select instructor</option>
+              <option v-for="instructor in instructors" :key="instructor.id" :value="instructor.id">
+                {{ instructor.full_name }}
               </option>
             </select>
           </div>
@@ -54,14 +47,14 @@
       <div class="card-body p-0">
         <div class="p-3 border-bottom">
           <input v-model="search" class="form-control form-control-sm" type="text"
-            placeholder="Search by student or subject">
+            placeholder="Search by instructor or subject">
         </div>
 
         <div class="table-responsive">
           <table class="table table-hover mb-0 align-middle">
             <thead class="table-light">
               <tr>
-                <th class="ps-3">Student</th>
+                <th class="ps-3">Instructor</th>
                 <th>Subject</th>
                 <th class="text-end pe-3">Action</th>
               </tr>
@@ -74,7 +67,7 @@
                 <td colspan="3" class="text-center py-4 text-muted">No assignments yet.</td>
               </tr>
               <tr v-for="item in filteredAssignments" :key="item.id">
-                <td class="ps-3">{{ item.student_name || '-' }}</td>
+                <td class="ps-3">{{ item.instructor_name || '-' }}</td>
                 <td>{{ item.subject_name || '-' }}</td>
                 <td class="text-end pe-3">
                   <button class="btn btn-sm btn-outline-danger" @click="removeAssignment(item.id)"
@@ -96,55 +89,45 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import axios from 'axios';
 
-const students = ref([]);
+const instructors = ref([]);
 const subjects = ref([]);
 const assignments = ref([]);
 
-const loadingStudents = ref(false);
+const loadingInstructors = ref(false);
 const loadingSubjects = ref(false);
 const loadingAssignments = ref(false);
 const saving = ref(false);
 const deletingId = ref(null);
 const search = ref('');
-const studentPickerSearch = ref('');
 
 const form = reactive({
-  student_user_id: '',
+  instructor_user_id: '',
   subject_id: '',
 });
 
 const loadingAny = computed(() =>
-  loadingStudents.value || loadingSubjects.value || loadingAssignments.value
+  loadingInstructors.value || loadingSubjects.value || loadingAssignments.value
 );
 
-const canSave = computed(() => Boolean(form.student_user_id && form.subject_id));
-
-const filteredStudentOptions = computed(() => {
-  const q = studentPickerSearch.value.trim().toLowerCase();
-  if (!q) return students.value;
-
-  return students.value.filter((student) =>
-    String(student.full_name || '').toLowerCase().includes(q)
-  );
-});
+const canSave = computed(() => Boolean(form.instructor_user_id && form.subject_id));
 
 const filteredAssignments = computed(() => {
   const q = search.value.trim().toLowerCase();
   if (!q) return assignments.value;
 
   return assignments.value.filter((row) => {
-    const combined = `${row.student_name || ''} ${row.subject_name || ''}`.toLowerCase();
+    const combined = `${row.instructor_name || ''} ${row.subject_name || ''}`.toLowerCase();
     return combined.includes(q);
   });
 });
 
-const loadStudents = async () => {
-  loadingStudents.value = true;
+const loadInstructors = async () => {
+  loadingInstructors.value = true;
   try {
-    const { data } = await axios.get('/api/dept_head/students');
-    students.value = Array.isArray(data?.data) ? data.data : [];
+    const { data } = await axios.get('/api/dept_head/instructors');
+    instructors.value = Array.isArray(data?.data) ? data.data : [];
   } finally {
-    loadingStudents.value = false;
+    loadingInstructors.value = false;
   }
 };
 
@@ -161,7 +144,7 @@ const loadSubjects = async () => {
 const loadAssignments = async () => {
   loadingAssignments.value = true;
   try {
-    const { data } = await axios.get('/api/dept_head/subject-assignments/students');
+    const { data } = await axios.get('/api/dept_head/subject-assignments/instructors');
     assignments.value = Array.isArray(data?.data) ? data.data : [];
   } catch (error) {
     assignments.value = [];
@@ -177,7 +160,7 @@ const loadAssignments = async () => {
 };
 
 const loadAll = async () => {
-  await Promise.all([loadStudents(), loadSubjects(), loadAssignments()]);
+  await Promise.all([loadInstructors(), loadSubjects(), loadAssignments()]);
 };
 
 const saveAssignment = async () => {
@@ -186,13 +169,13 @@ const saveAssignment = async () => {
   saving.value = true;
   try {
     const payload = {
-      student_user_id: Number(form.student_user_id),
+      instructor_user_id: Number(form.instructor_user_id),
       subject_id: Number(form.subject_id),
     };
 
-    const { data } = await axios.post('/api/dept_head/subject-assignments/students', payload);
+    const { data } = await axios.post('/api/dept_head/subject-assignments/instructors', payload);
     window.Toast?.fire({ icon: 'success', title: data?.message || 'Assignment saved' });
-    form.student_user_id = '';
+    form.instructor_user_id = '';
     form.subject_id = '';
     await loadAssignments();
   } catch (error) {
@@ -210,7 +193,7 @@ const saveAssignment = async () => {
 const removeAssignment = async (id) => {
   const result = await window.Swal?.fire({
     title: 'Remove assignment?',
-    text: 'This will unassign the subject from the student.',
+    text: 'This will unassign the subject from the instructor.',
     icon: 'warning',
     showCancelButton: true,
     confirmButtonColor: '#ef4444',
@@ -222,7 +205,7 @@ const removeAssignment = async (id) => {
 
   deletingId.value = id;
   try {
-    await axios.delete(`/api/dept_head/subject-assignments/students/${id}`);
+    await axios.delete(`/api/dept_head/subject-assignments/instructors/${id}`);
     window.Toast?.fire({ icon: 'success', title: 'Assignment removed' });
     await loadAssignments();
   } catch (error) {
@@ -239,3 +222,4 @@ const removeAssignment = async (id) => {
 
 onMounted(loadAll);
 </script>
+

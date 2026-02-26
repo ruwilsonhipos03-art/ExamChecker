@@ -55,6 +55,7 @@ const routes = [
                     { path: "normal/reports", component: () => import("../pages/depthead/normal/Reports.vue") },
                     { path: "students", component: () => import("../pages/depthead/Students.vue") },
                     { path: "subjects", component: () => import("../pages/depthead/Subjects.vue") },
+                    { path: "instructor-subjects", component: () => import("../pages/depthead/InstructorSubjects.vue") },
                 ],
             },
 

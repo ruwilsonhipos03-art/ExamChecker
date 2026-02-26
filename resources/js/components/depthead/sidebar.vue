@@ -20,6 +20,11 @@
                 <span v-if="!isCollapsed">Subjects</span>
             </router-link>
 
+            <router-link to="/college-dean/instructor-subjects" class="nav-item">
+                <i class="bi bi-person-workspace"></i>
+                <span v-if="!isCollapsed">Instructor Subjects</span>
+            </router-link>
+
             <div class="section-label" v-if="!isCollapsed">EXAMS</div>
 
             <div class="nav-group">
