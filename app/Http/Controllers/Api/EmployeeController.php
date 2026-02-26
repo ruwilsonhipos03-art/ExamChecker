@@ -72,7 +72,6 @@ class EmployeeController extends Controller
             'last_name'       => 'required|string',
             // Email removed from here
             'username'        => 'required|unique:users,username,' . $user->id,
-            'employee_number' => 'required|unique:employees,Employee_Number,' . $employee->id,
             'password'        => 'nullable|min:8',
             'department_id'   => 'nullable|exists:departments,id',
             'office_id'       => 'nullable|exists:offices,id',
@@ -95,7 +94,6 @@ class EmployeeController extends Controller
             }
 
             $employee->update([
-                'Employee_Number' => $validated['employee_number'],
                 'department_id'   => $validated['department_id'],
                 'office_id'       => $validated['office_id'],
             ]);

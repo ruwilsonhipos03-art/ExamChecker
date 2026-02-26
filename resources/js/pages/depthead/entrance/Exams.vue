@@ -1,15 +1,15 @@
 <template>
     <div class="container-fluid py-4">
-        <div class="card shadow-sm border-0 mb-4 bg-indigo-700 text-white">
+        <div class="card shadow-sm border-0 mb-4">
             <div class="card-body p-4">
                 <div class="row align-items-center">
                     <div class="col">
-                        <h4 class="fw-bold mb-1">College Dean Workspace</h4>
-                        <p class="text-indigo-100 small mb-0">Manage screening examination sets</p>
+                        <h4 class="fw-bold mb-1 text-dark">College Dean Workspace</h4>
+                        <p class="text-muted small mb-0">Create and manage screening examination sets</p>
                     </div>
                     <div class="col-auto">
-                        <button @click="openModal()" class="btn btn-light fw-bold px-4 shadow-sm text-indigo-700">
-                            <i class="bi bi-shield-plus me-2"></i> CREATE NEW SET
+                        <button @click="openModal()" class="btn btn-emerald fw-bold px-4 shadow-sm">
+                            <i class="bi bi-plus-lg me-2"></i> NEW EXAM SET
                         </button>
                     </div>
                 </div>
@@ -22,7 +22,7 @@
                     <div class="input-group input-group-sm w-50 w-md-25">
                         <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
                         <input type="text" v-model="searchQuery" class="form-control border-start-0 ps-0"
-                            placeholder="Search my sets...">
+                            placeholder="Search by title or type...">
                     </div>
                 </div>
 
@@ -30,17 +30,17 @@
                     <table class="table table-hover mb-0 align-middle">
                         <thead class="bg-light">
                             <tr>
-                                <th class="ps-4 py-3 text-secondary small fw-bold">REF. NO</th>
+                                <th class="ps-4 py-3 text-secondary small fw-bold">NO.</th>
                                 <th class="py-3 text-secondary small fw-bold">EXAM TITLE</th>
-                                <th class="py-3 text-secondary small fw-bold">TYPE</th>
-                                <th class="py-3 text-secondary small fw-bold">OWNER</th>
+                                <th class="py-3 text-secondary small fw-bold">CATEGORY</th>
+                                <th class="py-3 text-secondary small fw-bold">EXAMINER</th>
                                 <th class="pe-4 py-3 text-end text-secondary small fw-bold">ACTIONS</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr v-if="isLoading">
                                 <td colspan="6" class="text-center py-5">
-                                    <div class="spinner-border text-indigo" role="status"></div>
+                                    <div class="spinner-border text-emerald" role="status"></div>
                                 </td>
                             </tr>
                             <template v-else>
@@ -48,26 +48,31 @@
                                     <td class="ps-4 text-muted">#{{ index + 1 }}</td>
                                     <td>
                                         <div class="d-flex align-items-center">
-                                            <div class="dept-icon me-3">
-                                                <i class="bi bi-file-earmark-check-fill text-indigo"></i>
+                                            <div class="exam-icon me-3">
+                                                <i class="bi bi-journal-text text-emerald"></i>
                                             </div>
-                                            <span class="fw-bold text-dark">{{ exam.Exam_Title }}</span>
+                                            <span class="fw-semibold text-dark">{{ exam.Exam_Title }}</span>
                                         </div>
                                     </td>
                                     <td>
-                                        <span class="badge bg-indigo-soft text-indigo border border-indigo-200 px-3">
+                                        <span
+                                            class="badge rounded-pill bg-light text-emerald border border-emerald px-3">
                                             {{ exam.Exam_Type }}
                                         </span>
                                     </td>
                                     <td class="text-muted small">
-                                        <i class="bi bi-person-circle me-1"></i>
-                                        {{ exam.creator?.name || 'You' }}
+                                        <template v-if="exam.creator">
+                                            {{ exam.creator.name || `${exam.creator.first_name || ''}
+                                            ${exam.creator.last_name || ''}` }}
+                                        </template>
+                                        <template v-else>N/A</template>
                                     </td>
                                     <td class="pe-4 text-end">
-                                        <button @click="openModal(exam)" class="btn btn-icon btn-outline-indigo me-2">
+                                        <button @click="openModal(exam)" class="btn btn-icon btn-light-success me-2"
+                                            title="Edit">
                                             <i class="bi bi-pencil-square"></i>
                                         </button>
-                                        <button @click="deleteExam(exam.id)" class="btn btn-icon btn-outline-danger"
+                                        <button @click="deleteExam(exam.id)" class="btn btn-icon btn-light-danger"
                                             :disabled="deletingId === exam.id">
                                             <span v-if="deletingId === exam.id"
                                                 class="spinner-border spinner-border-sm"></span>
@@ -76,8 +81,7 @@
                                     </td>
                                 </tr>
                                 <tr v-if="filteredExams.length === 0">
-                                    <td colspan="5" class="text-center py-5 text-muted">No exams recorded under your
-                                        account.</td>
+                                    <td colspan="5" class="text-center py-5 text-muted">No exams recorded yet.</td>
                                 </tr>
                             </template>
                         </tbody>
@@ -88,24 +92,22 @@
 
         <div class="modal fade" id="examModal" tabindex="-1" ref="modalRef">
             <div class="modal-dialog modal-lg modal-dialog-centered">
-                <div class="modal-content border-0 shadow-lg">
-                    <div class="modal-header bg-indigo-700 text-white border-0">
-                        <h5 class="modal-title fw-bold">{{ editMode ? 'Update Exam Set' : 'Configure New Exam' }}</h5>
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-emerald text-white border-0">
+                        <h5 class="modal-title fw-bold">{{ editMode ? 'Modify Exam Set' : 'Create New Exam Set' }}</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
                     <form @submit.prevent="saveExam">
                         <div class="modal-body p-4">
                             <div class="mb-3">
-                                <label class="form-label small fw-bold text-secondary text-uppercase">Title of
-                                    Examination</label>
+                                <label class="form-label small fw-bold text-secondary">EXAM TITLE</label>
                                 <input v-model="form.Exam_Title" type="text" class="form-control border-2" required>
                             </div>
                         </div>
                         <div class="modal-footer border-0 p-4 pt-0">
-                            <button type="button" class="btn btn-light fw-bold" data-bs-dismiss="modal">CLOSE</button>
-                            <button type="submit" class="btn btn-indigo-700 px-4 fw-bold text-white"
-                                :disabled="isSaving">
-                                {{ isSaving ? 'SAVING...' : 'COMMIT CHANGES' }}
+                            <button type="button" class="btn btn-light fw-bold" data-bs-dismiss="modal">CANCEL</button>
+                            <button type="submit" class="btn btn-emerald px-4 fw-bold" :disabled="isSaving">
+                                {{ isSaving ? 'SAVING...' : 'SAVE EXAM' }}
                             </button>
                         </div>
                     </form>
@@ -196,7 +198,7 @@ const deleteExam = async (id) => {
         text: 'This exam set will be permanently removed from your records.',
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonColor: '#4f46e5'
+        confirmButtonColor: '#ef4444'
     });
 
     if (result.isConfirmed) {
@@ -217,67 +219,51 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.bg-indigo-700 {
-    background-color: #4338ca;
-}
-
-.text-indigo-700 {
-    color: #4338ca;
-}
-
-.text-indigo-100 {
-    color: #e0e7ff;
-}
-
-.text-indigo {
-    color: #4f46e5;
-}
-
-.btn-indigo-700 {
-    background-color: #4338ca;
-    border: none;
-}
-
-.btn-indigo-700:hover {
-    background-color: #3730a3;
-}
-
-.bg-indigo-soft {
-    background-color: #eef2ff;
-}
-
-.border-indigo-200 {
-    border-color: #c7d2fe !important;
-}
-
-.btn-outline-indigo {
-    color: #4f46e5;
-    border-color: #4f46e5;
-}
-
-.btn-outline-indigo:hover {
-    background-color: #4f46e5;
+.btn-emerald {
+    background-color: #10b981;
     color: white;
 }
 
-.dept-icon {
-    width: 40px;
-    height: 40px;
-    background-color: #eef2ff;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.1rem;
+.btn-emerald:hover {
+    background-color: #059669;
+}
+
+.text-emerald {
+    color: #10b981;
+}
+
+.bg-emerald {
+    background-color: #10b981;
+}
+
+.border-emerald {
+    border-color: #10b981 !important;
 }
 
 .btn-icon {
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    display: inline-flex;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    border: none;
+}
+
+.btn-light-success {
+    color: #10b981;
+    background-color: #ecfdf5;
+}
+
+.btn-light-danger {
+    color: #ef4444;
+    background-color: #fef2f2;
+}
+
+.exam-icon {
+    width: 40px;
+    height: 40px;
+    background-color: #f0fdf4;
+    border-radius: 12px;
+    display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 6px;
 }
 </style>

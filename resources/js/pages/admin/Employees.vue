@@ -172,6 +172,11 @@
                                         </option>
                                     </select>
                                 </div>
+                                <div class="col-md-12" v-if="editMode">
+                                    <label class="form-label small fw-bold text-uppercase">Employee Number</label>
+                                    <input v-model="form.employee_number" type="text" class="form-control" readonly
+                                        disabled>
+                                </div>
 
                                 <div class="col-md-12"> <label
                                         class="form-label small fw-bold text-uppercase label-required">Username</label>
@@ -234,6 +239,7 @@ const form = reactive({
     middle_initial: '',
     last_name: '',
     extension_name: '',
+    employee_number: '',
     department_id: '',
     office_id: '',
     username: '',
@@ -294,6 +300,7 @@ const openModal = (emp = null) => {
             middle_initial: emp.user.middle_initial,
             last_name: emp.user.last_name,
             extension_name: emp.user.extension_name,
+            employee_number: emp.Employee_Number || '',
             department_id: emp.department_id || '',
             office_id: emp.office_id || '',
             username: emp.user.username,

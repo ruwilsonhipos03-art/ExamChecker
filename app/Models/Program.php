@@ -23,4 +23,9 @@ class Program extends Model
     {
         return $this->hasOne(ProgramRequirement::class);
     }
+
+    public function students()
+    {
+        return $this->hasMany(Student::class);
+    }
 }
