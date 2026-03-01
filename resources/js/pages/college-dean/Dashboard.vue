@@ -21,14 +21,36 @@
                             <p class="text-muted mb-0">Start the optical scanner to process new student answer sheets.
                             </p>
                         </div>
-                        <button class="btn btn-scan d-flex align-items-center gap-3 px-5 py-3 rounded-3 shadow">
+                        <button
+                            class="btn btn-scan d-flex align-items-center gap-3 px-5 py-3 rounded-3 shadow"
+                            :disabled="isScanning"
+                            @click="openScanPicker"
+                        >
                             <i class="bi bi-qr-code-scan fs-2"></i>
-                            <span class="fs-4 fw-bold">START SCANNING</span>
+                            <span class="fs-4 fw-bold">{{ isScanning ? 'PROCESSING...' : 'START SCANNING' }}</span>
                         </button>
                     </div>
                 </div>
             </div>
         </div>
+
+        <input
+            ref="singleInputRef"
+            type="file"
+            class="d-none"
+            accept="image/*"
+            @change="onSingleSelected"
+        />
+        <input
+            ref="folderInputRef"
+            type="file"
+            class="d-none"
+            accept="image/*"
+            multiple
+            webkitdirectory
+            directory
+            @change="onFolderSelected"
+        />
 
         <div class="row g-4 mb-4">
             <div class="col-md-3" v-for="(stat, index) in stats" :key="index">
@@ -65,11 +87,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 import axios from 'axios';
 import Swal from 'sweetalert2';
+import { useRouter } from 'vue-router';
 
 const currentTime = ref('');
+const isScanning = ref(false);
+const singleInputRef = ref(null);
+const folderInputRef = ref(null);
+const router = useRouter();
+let statsRefreshTimer = null;
 
 const stats = ref([
     { label: 'Exams Created', value: '0', icon: 'bi-file-earmark-plus-fill', colorClass: 'bg-emerald-light text-emerald' },
@@ -85,7 +113,7 @@ const activities = [
 
 const loadStats = async () => {
     try {
-        const { data } = await axios.get('/api/dept_head/dashboard/stats');
+        const { data } = await axios.get('/api/college_dean/dashboard/stats');
         stats.value = [
             { label: 'Exams Created', value: Number(data.exams_created || 0).toLocaleString(), icon: 'bi-file-earmark-plus-fill', colorClass: 'bg-emerald-light text-emerald' },
             { label: 'Total Examinees', value: Number(data.total_examinees || 0).toLocaleString(), icon: 'bi-people-fill', colorClass: 'bg-emerald-light text-emerald' },
@@ -102,10 +130,110 @@ const loadStats = async () => {
     }
 };
 
+const openScanPicker = async () => {
+    if (isScanning.value) return;
+
+    const result = await Swal.fire({
+        title: 'Select Upload Type',
+        text: 'Choose how you want to check answer sheets.',
+        icon: 'question',
+        showCancelButton: true,
+        showDenyButton: true,
+        confirmButtonText: 'Single Image',
+        denyButtonText: 'Folder of Images',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#10b981',
+        denyButtonColor: '#0ea5e9',
+    });
+
+    if (result.isConfirmed) {
+        singleInputRef.value?.click();
+    } else if (result.isDenied) {
+        folderInputRef.value?.click();
+    }
+};
+
+const onSingleSelected = async (event) => {
+    const file = event?.target?.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('image', file);
+    await submitOmr(formData);
+    event.target.value = '';
+};
+
+const onFolderSelected = async (event) => {
+    const files = Array.from(event?.target?.files || []);
+    if (!files.length) return;
+
+    const formData = new FormData();
+    files.forEach((file) => formData.append('images[]', file));
+    await submitOmr(formData);
+    event.target.value = '';
+};
+
+const submitOmr = async (formData) => {
+    isScanning.value = true;
+    try {
+        Swal.fire({
+            title: 'Processing...',
+            text: 'Checking uploaded image(s). Please wait.',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading(),
+        });
+
+        const { data } = await axios.post('/api/entrance/omr/check', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        const processed = Array.isArray(data?.processed) ? data.processed : [];
+        const successCount = processed.filter((item) => item?.success).length;
+        const failed = processed.filter((item) => !item?.success);
+        const failureText = failed
+            .slice(0, 3)
+            .map((item) => `${item?.file || 'file'}: ${item?.message || 'Failed to process.'}`)
+            .join('\n');
+        const summaryText = data?.message || `Processed ${successCount} file(s).`;
+        const detailText = failureText ? `${summaryText}\n\n${failureText}` : summaryText;
+
+        await Swal.fire({
+            icon: successCount > 0 ? 'success' : 'warning',
+            title: 'Scanning Completed',
+            text: detailText,
+            showCancelButton: true,
+            confirmButtonText: 'Open Reports',
+            cancelButtonText: 'Close',
+            confirmButtonColor: '#10b981',
+        }).then((res) => {
+            if (res.isConfirmed) {
+                router.push('/college-dean/entrance/reports');
+            }
+        });
+    } catch (error) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Scanning failed',
+            text: error?.response?.data?.message || 'Could not process uploaded file(s).',
+            confirmButtonColor: '#ef4444',
+        });
+    } finally {
+        isScanning.value = false;
+    }
+};
+
 onMounted(() => {
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     currentTime.value = new Date().toLocaleDateString(undefined, options);
     loadStats();
+    statsRefreshTimer = setInterval(loadStats, 30000);
+});
+
+onBeforeUnmount(() => {
+    if (statsRefreshTimer) {
+        clearInterval(statsRefreshTimer);
+        statsRefreshTimer = null;
+    }
 });
 </script>
 

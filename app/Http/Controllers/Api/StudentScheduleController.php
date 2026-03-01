@@ -39,4 +39,5 @@ class StudentScheduleController extends Controller
             'data' => $schedules,
         ]);
     }
+
 }

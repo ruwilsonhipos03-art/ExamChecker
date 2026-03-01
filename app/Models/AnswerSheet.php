@@ -14,6 +14,7 @@ class AnswerSheet extends Model
         'exam_id',
         'user_id',
         'created_by',
+        'scanned_by',
         'image_path',
         'scanned_data',
         'total_score',
@@ -24,6 +25,7 @@ class AnswerSheet extends Model
     protected $casts = [
         'scanned_data' => 'array',
         'scanned_at' => 'datetime',
+        'scanned_by' => 'integer',
     ];
 
     public function exam()
@@ -39,5 +41,10 @@ class AnswerSheet extends Model
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function scanner()
+    {
+        return $this->belongsTo(User::class, 'scanned_by');
     }
 }

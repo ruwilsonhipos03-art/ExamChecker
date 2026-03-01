@@ -188,11 +188,18 @@ const submitOmr = async (formData) => {
 
         const processed = Array.isArray(data?.processed) ? data.processed : [];
         const successCount = processed.filter((item) => item?.success).length;
+        const failed = processed.filter((item) => !item?.success);
+        const failureText = failed
+            .slice(0, 3)
+            .map((item) => `${item?.file || 'file'}: ${item?.message || 'Failed to process.'}`)
+            .join('\n');
+        const summaryText = data?.message || `Processed ${successCount} file(s).`;
+        const detailText = failureText ? `${summaryText}\n\n${failureText}` : summaryText;
 
         await Swal.fire({
             icon: successCount > 0 ? 'success' : 'warning',
             title: 'Scanning Completed',
-            text: data?.message || `Processed ${successCount} file(s).`,
+            text: detailText,
             showCancelButton: true,
             confirmButtonText: 'Open Reports',
             cancelButtonText: 'Close',

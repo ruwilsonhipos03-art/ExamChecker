@@ -60,7 +60,7 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <div class="small fw-bold text-dark">{{ emp.department?.Department_Name || 'N/A'
+                                        <div class="small fw-bold text-dark">{{ emp.department?.College_Name || 'N/A'
                                         }}</div>
                                         <div class="small text-muted">{{ emp.office?.Office_Name || 'N/A' }}</div>
                                     </td>
@@ -119,7 +119,7 @@
                                         <div class="d-flex flex-wrap align-items-center gap-4">
                                             <div class="form-check">
                                                 <input class="form-check-input custom-check" type="radio"
-                                                    value="dept_head" id="roleDept" v-model="roleSelectionType"
+                                                    value="college_dean" id="roleDept" v-model="roleSelectionType"
                                                     @change="handleRoleTypeChange">
                                                 <label class="form-check-label fw-bold text-dark"
                                                     for="roleDept">College
@@ -157,10 +157,10 @@
 
                                 <div class="col-md-6">
                                     <label class="form-label small fw-bold text-uppercase">College</label>
-                                    <select v-model="form.department_id" class="form-select">
+                                    <select v-model="form.college_id" class="form-select">
                                         <option value="">None / Unassigned</option>
-                                        <option v-for="dept in departments" :key="dept.id" :value="dept.id">{{
-                                            dept.Department_Name }}</option>
+                                        <option v-for="dept in colleges" :key="dept.id" :value="dept.id">{{
+                                            dept.College_Name }}</option>
                                     </select>
                                 </div>
                                 <div class="col-md-6">
@@ -220,7 +220,7 @@ import axios from 'axios';
 import { Modal } from 'bootstrap';
 
 const employees = ref([]);
-const departments = ref([]);
+const colleges = ref([]);
 const offices = ref([]);
 const searchQuery = ref('');
 const editMode = ref(false);
@@ -240,7 +240,7 @@ const form = reactive({
     last_name: '',
     extension_name: '',
     employee_number: '',
-    department_id: '',
+    college_id: '',
     office_id: '',
     username: '',
     // email removed from here
@@ -250,7 +250,7 @@ const form = reactive({
 });
 
 const handleRoleTypeChange = () => {
-    form.roles = roleSelectionType.value === 'dept_head' ? ['dept_head'] : [];
+    form.roles = roleSelectionType.value === 'college_dean' ? ['college_dean'] : [];
 };
 
 const passwordsDoNotMatch = computed(() => form.password !== form.password_confirmation);
@@ -258,7 +258,7 @@ const showPassError = computed(() => isConfirmFocused.value && passwordsDoNotMat
 
 const filteredEmployees = computed(() => {
     return employees.value.filter(e => {
-        const str = `${e.user?.first_name} ${e.user?.last_name} ${e.Employee_Number} ${e.department?.Department_Name}`.toLowerCase();
+        const str = `${e.user?.first_name} ${e.user?.last_name} ${e.Employee_Number} ${e.department?.College_Name}`.toLowerCase();
         return str.includes(searchQuery.value.toLowerCase());
     });
 });
@@ -271,8 +271,8 @@ onMounted(() => {
 
 const fetchOptions = async () => {
     try {
-        const [deptRes, offRes] = await Promise.all([axios.get('/api/admin/departments'), axios.get('/api/admin/offices')]);
-        departments.value = deptRes.data.data || deptRes.data;
+        const [deptRes, offRes] = await Promise.all([axios.get('/api/admin/colleges'), axios.get('/api/admin/offices')]);
+        colleges.value = deptRes.data.data || deptRes.data;
         offices.value = offRes.data.data || offRes.data;
     } catch (err) { console.error(err); }
 };
@@ -293,7 +293,7 @@ const openModal = (emp = null) => {
 
     if (emp) {
         const currentRole = emp.user?.role || '';
-        roleSelectionType.value = currentRole === 'dept_head' ? 'dept_head' : 'staff';
+        roleSelectionType.value = currentRole === 'college_dean' ? 'college_dean' : 'staff';
 
         Object.assign(form, {
             first_name: emp.user.first_name,
@@ -301,7 +301,7 @@ const openModal = (emp = null) => {
             last_name: emp.user.last_name,
             extension_name: emp.user.extension_name,
             employee_number: emp.Employee_Number || '',
-            department_id: emp.department_id || '',
+            college_id: emp.college_id || '',
             office_id: emp.office_id || '',
             username: emp.user.username,
             // email assignment removed

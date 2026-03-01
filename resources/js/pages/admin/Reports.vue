@@ -35,7 +35,7 @@
                             <option value="">All Roles</option>
                             <option value="instructor">Instructor</option>
                             <option value="student">Student</option>
-                            <option value="dept_head">College Dean</option>
+                            <option value="college_dean">College Dean</option>
                             <option value="admin">Administrator</option>
                         </select>
                     </div>
@@ -44,8 +44,8 @@
                         <select v-model="filters.department" class="form-select form-select-sm"
                             @change="currentPage = 1">
                             <option value="">All Colleges</option>
-                            <option v-for="dept in departments" :key="dept.id" :value="dept.id">
-                                {{ dept.Department_Name }}
+                            <option v-for="dept in colleges" :key="dept.id" :value="dept.id">
+                                {{ dept.College_Name }}
                             </option>
                         </select>
                     </div>
@@ -101,7 +101,7 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <div class="small fw-bold text-dark">{{ user.department_name || 'N/A' }}</div>
+                                        <div class="small fw-bold text-dark">{{ user.College_Name || 'N/A' }}</div>
                                         <div class="small text-muted">{{ user.office_name || 'N/A' }}</div>
                                     </td>
                                     <td><span class="small">{{ user.email }}</span></td>
@@ -151,7 +151,7 @@ import axios from 'axios';
 
 // State
 const allUsers = ref([]); // Initialize as array to prevent .filter error
-const departments = ref([]);
+const colleges = ref([]);
 const isLoading = ref(false);
 const currentPage = ref(1);
 const itemsPerPage = 30;
@@ -174,7 +174,7 @@ const filteredData = computed(() => {
 
         const matchesSearch = fullName.includes(filters.search.toLowerCase()) || idNum.includes(filters.search);
         const matchesRole = !filters.role || user.role === filters.role;
-        const matchesDept = !filters.department || user.department_id === filters.department;
+        const matchesDept = !filters.department || user.college_id === filters.department;
         const matchesStatus = !filters.status || user.status === filters.status;
 
         return matchesSearch && matchesRole && matchesDept && matchesStatus;
@@ -212,8 +212,8 @@ const fetchReportData = async () => {
 
 const fetchOptions = async () => {
     try {
-        const res = await axios.get('/api/admin/departments');
-        departments.value = res.data.data || res.data;
+        const res = await axios.get('/api/admin/colleges');
+        colleges.value = res.data.data || res.data;
     } catch (e) { console.error(e); }
 };
 

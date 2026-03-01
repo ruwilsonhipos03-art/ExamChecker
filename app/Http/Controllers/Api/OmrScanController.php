@@ -6,19 +6,25 @@ use App\Http\Controllers\Controller;
 use App\Models\AnswerKey;
 use App\Models\AnswerSheet;
 use App\Models\ExamSubject;
+use App\Models\Student;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Process\Process;
 
 class OmrScanController extends Controller
 {
+    private const SCREENING_TYPE_ALIASES = ['screening', 'screening exam'];
+    private const PASSING_SCORE = 75;
+
     public function check(Request $request)
     {
         $user = Auth::user();
-        if (!$user || $user->role !== 'entrance_examiner') {
+        if (!$user || !$this->hasAnyRole($user->role, ['entrance_examiner', 'college_dean', 'instructor'])) {
             return response()->json([
-                'message' => 'Only entrance examiners can check answer sheets.',
+                'message' => 'Only entrance examiners, college deans, and instructors can check answer sheets.',
             ], 403);
         }
 
@@ -88,6 +94,16 @@ class OmrScanController extends Controller
             ];
         }
 
+        $user = Auth::user();
+        if (!$user || !$this->canManageExam($user, (int) $sheet->exam_id)) {
+            return [
+                'success' => false,
+                'file' => $file->getClientOriginalName(),
+                'sheet_code' => $payload,
+                'message' => "You can only check answer sheets for exams you created.",
+            ];
+        }
+
         $answerKey = AnswerKey::where('exam_id', $sheet->exam_id)->latest('id')->first();
         if (!$answerKey) {
             return [
@@ -106,13 +122,18 @@ class OmrScanController extends Controller
             ? array_sum(array_column($subjectScores, 'raw_score'))
             : $this->scoreAllQuestions($studentAnswers, $correctAnswers);
 
-        DB::transaction(function () use ($sheet, $storedPath, $studentAnswers, $subjectScores, $totalScore) {
-            $sheet->update([
+        DB::transaction(function () use ($sheet, $storedPath, $studentAnswers, $subjectScores, $totalScore, $user) {
+            $updates = [
                 'image_path' => $storedPath,
                 'scanned_data' => $studentAnswers,
                 'total_score' => $totalScore,
                 'status' => 'checked',
-            ]);
+            ];
+            if ($this->hasScannedByColumn()) {
+                $updates['scanned_by'] = $user?->id;
+            }
+
+            $sheet->update($updates);
 
             DB::table('exam_results')->where('answer_sheet_id', $sheet->id)->delete();
 
@@ -128,6 +149,15 @@ class OmrScanController extends Controller
                 }, $subjectScores));
             }
         });
+
+        if (
+            $this->isScreeningExamType((string) ($sheet->exam?->Exam_Type ?? ''))
+            && $totalScore >= self::PASSING_SCORE
+            && (int) ($sheet->exam?->program_id ?? 0) > 0
+            && (int) ($sheet->user_id ?? 0) > 0
+        ) {
+            $this->assignStudentProgram((int) $sheet->user_id, (int) $sheet->exam->program_id);
+        }
 
         return [
             'success' => true,
@@ -148,19 +178,55 @@ class OmrScanController extends Controller
             ['python', $scriptPath, $imagePath],
             ['py', '-3', $scriptPath, $imagePath],
         ];
+        $attemptErrors = [];
 
         foreach ($commands as $command) {
             $process = new Process($command, $workingDir);
-            $process->setTimeout(120);
-            $process->run();
+            $process->setTimeout(180);
+
+            try {
+                $process->run();
+            } catch (\Throwable $e) {
+                $attemptErrors[] = sprintf(
+                    '[%s] %s',
+                    implode(' ', $command),
+                    $e->getMessage()
+                );
+                continue;
+            }
 
             if (!$process->isSuccessful()) {
+                $errorDetail = trim($process->getErrorOutput());
+                if ($process->isTimedOut()) {
+                    $errorDetail = $errorDetail !== '' ? $errorDetail : 'Process timed out while scanning the image.';
+                }
+
+                if ($errorDetail === '') {
+                    $errorDetail = trim($process->getOutput());
+                }
+
+                if ($errorDetail === '') {
+                    $errorDetail = 'Process exited unsuccessfully with no additional output.';
+                }
+
+                $attemptErrors[] = sprintf(
+                    '[%s] %s',
+                    implode(' ', $command),
+                    $errorDetail
+                );
                 continue;
             }
 
             $output = trim($process->getOutput());
             $decoded = json_decode($output, true);
             if (!is_array($decoded)) {
+                $stderr = trim($process->getErrorOutput());
+                $attemptErrors[] = sprintf(
+                    '[%s] Invalid JSON output. stdout: %s%s',
+                    implode(' ', $command),
+                    $output === '' ? '(empty)' : $output,
+                    $stderr !== '' ? ' | stderr: ' . $stderr : ''
+                );
                 continue;
             }
 
@@ -179,7 +245,9 @@ class OmrScanController extends Controller
 
         return [
             'success' => false,
-            'message' => 'OMR processing failed. Please verify Python dependencies are installed.',
+            'message' => !empty($attemptErrors)
+                ? 'OMR processing failed: ' . implode(' || ', $attemptErrors)
+                : 'OMR processing failed. Please verify Python dependencies are installed.',
         ];
     }
 
@@ -232,5 +300,93 @@ class OmrScanController extends Controller
             }
         }
         return $score;
+    }
+
+    private function hasAnyRole(?string $roles, array $allowedRoles): bool
+    {
+        if (!$roles) {
+            return false;
+        }
+
+        $roleList = array_map('trim', explode(',', $roles));
+        foreach ($allowedRoles as $role) {
+            if (in_array($role, $roleList, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function canManageExam(User $user, int $examId): bool
+    {
+        if ($examId <= 0) {
+            return false;
+        }
+
+        $employeeId = DB::table('employees')
+            ->where('user_id', $user->id)
+            ->value('id');
+
+        return DB::table('exams')
+            ->where('id', $examId)
+            ->where(function ($query) use ($employeeId, $user) {
+                if ($employeeId) {
+                    $query->where('created_by', $employeeId)
+                        ->orWhere('created_by', $user->id);
+                    return;
+                }
+
+                $query->where('created_by', $user->id);
+            })
+            ->exists();
+    }
+
+    private function hasScannedByColumn(): bool
+    {
+        try {
+            return Schema::hasColumn('answer_sheets', 'scanned_by');
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    private function isScreeningExamType(string $examType): bool
+    {
+        $value = strtolower(trim($examType));
+        return in_array($value, self::SCREENING_TYPE_ALIASES, true);
+    }
+
+    private function assignStudentProgram(int $userId, int $programId): void
+    {
+        if ($userId <= 0 || $programId <= 0) {
+            return;
+        }
+
+        $student = Student::query()->where('user_id', $userId)->first();
+        if ($student) {
+            $student->update(['program_id' => $programId]);
+            return;
+        }
+
+        Student::query()->create([
+            'user_id' => $userId,
+            'Student_Number' => $this->generateUniqueStudentNumber($userId),
+            'program_id' => $programId,
+        ]);
+    }
+
+    private function generateUniqueStudentNumber(int $userId): string
+    {
+        $base = 'STU' . str_pad((string) $userId, 6, '0', STR_PAD_LEFT);
+        if (!Student::query()->where('Student_Number', $base)->exists()) {
+            return $base;
+        }
+
+        do {
+            $candidate = $base . '-' . strtoupper(substr((string) bin2hex(random_bytes(3)), 0, 6));
+        } while (Student::query()->where('Student_Number', $candidate)->exists());
+
+        return $candidate;
     }
 }

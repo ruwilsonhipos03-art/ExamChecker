@@ -1,6 +1,6 @@
 <template>
     <div class="page-container">
-        <h3 class="fw-bold mb-4">Entrance Examiner Reports</h3>
+        <h3 class="fw-bold mb-4">Term Exam Reports</h3>
 
         <div class="card border-0 shadow-sm p-4 rounded-4 mb-3 no-print">
             <div class="row g-3 align-items-end">
@@ -9,6 +9,14 @@
                     <select v-model="filters.examTitle" class="form-select">
                         <option value="">All Exams</option>
                         <option v-for="title in examTitles" :key="title" :value="title">{{ title }}</option>
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Filter by Program</label>
+                    <select v-model="filters.programName" class="form-select">
+                        <option value="">All Programs</option>
+                        <option v-for="program in programNames" :key="program" :value="program">{{ program }}</option>
                     </select>
                 </div>
 
@@ -27,11 +35,8 @@
                     <select v-model="filters.sortBy" class="form-select">
                         <option value="student_full_name">Name</option>
                         <option value="exam_name">Exam</option>
-                        <option value="math">Math</option>
-                        <option value="english">English</option>
-                        <option value="science">Science</option>
-                        <option value="social_science">Social Science</option>
-                        <option value="total">Total</option>
+                        <option value="score">Score</option>
+                        <option value="items">Items</option>
                     </select>
                 </div>
 
@@ -57,26 +62,23 @@
                 <div class="print-sub">Type of Exam: {{ printExamType }}</div>
                 <div class="print-sub">College: {{ printCollegeName }}</div>
             </div>
-            <div class="table-responsive no-print">
+            <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
                             <th style="width: 72px;">No.</th>
                             <th>Student Fullname</th>
                             <th>Exam Name</th>
-                            <th class="text-end">Math</th>
-                            <th class="text-end">English</th>
-                            <th class="text-end">Science</th>
-                            <th class="text-end">Social Science</th>
-                            <th class="text-end">Total</th>
+                            <th class="text-end">Score</th>
+                            <th class="text-end">Items</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-if="loading">
-                            <td colspan="8" class="text-center py-4 text-muted">Loading reports...</td>
+                            <td colspan="5" class="text-center py-4 text-muted">Loading reports...</td>
                         </tr>
                         <tr v-else-if="filteredRows.length === 0">
-                            <td colspan="8" class="text-center py-4 text-muted">No records found.</td>
+                            <td colspan="5" class="text-center py-4 text-muted">No records found.</td>
                         </tr>
                         <tr
                             v-else
@@ -88,34 +90,8 @@
                             <td>{{ index + 1 }}</td>
                             <td class="fw-semibold">{{ row.student_full_name }}</td>
                             <td>{{ row.exam_name }}</td>
-                            <td class="text-end">{{ row.math }}</td>
-                            <td class="text-end">{{ row.english }}</td>
-                            <td class="text-end">{{ row.science }}</td>
-                            <td class="text-end">{{ row.social_science }}</td>
-                            <td class="text-end fw-bold">{{ row.total }}</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <div class="table-responsive print-only">
-                <table class="table table-bordered align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th style="width: 72px;">No.</th>
-                            <th>Name</th>
-                            <th class="text-end">Score</th>
-                            <th class="text-end">Items</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-if="printableRows.length === 0">
-                            <td colspan="4" class="text-center py-4 text-muted">No records found.</td>
-                        </tr>
-                        <tr v-else v-for="(row, index) in printableRows" :key="row.answer_sheet_id">
-                            <td>{{ index + 1 }}</td>
-                            <td>{{ row.student_full_name }}</td>
                             <td class="text-end">{{ row.score }}</td>
-                            <td class="text-end">{{ row.items }}</td>
+                            <td class="text-end fw-bold">{{ row.items }}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -155,6 +131,7 @@ import axios from 'axios';
 
 const loading = ref(false);
 const rows = ref([]);
+const EXAM_TYPE_ALIASES = ['departmental', 'normal', 'normal exam', 'term', 'term exam'];
 const isDetailOpen = ref(false);
 const detailLoading = ref(false);
 const detailError = ref('');
@@ -163,6 +140,7 @@ const detailItems = ref([]);
 
 const filters = ref({
     examTitle: '',
+    programName: '',
     name: '',
     sortBy: 'student_full_name',
     sortOrder: 'asc',
@@ -172,11 +150,21 @@ const examTitles = computed(() => {
     return [...new Set(rows.value.map((row) => row.exam_name))].sort((a, b) => a.localeCompare(b));
 });
 
+const programNames = computed(() => {
+    return [...new Set(rows.value.map((row) => row.program_name).filter(Boolean))]
+        .filter((name) => String(name).trim().toLowerCase() !== 'n/a')
+        .sort((a, b) => String(a).localeCompare(String(b)));
+});
+
 const filteredRows = computed(() => {
     let result = [...rows.value];
 
     if (filters.value.examTitle) {
         result = result.filter((row) => row.exam_name === filters.value.examTitle);
+    }
+
+    if (filters.value.programName) {
+        result = result.filter((row) => row.program_name === filters.value.programName);
     }
 
     if (filters.value.name) {
@@ -205,11 +193,8 @@ const readableSortBy = computed(() => {
     const labels = {
         student_full_name: 'Name',
         exam_name: 'Exam',
-        math: 'Math',
-        english: 'English',
-        science: 'Science',
-        social_science: 'Social Science',
-        total: 'Total',
+        score: 'Score',
+        items: 'Items',
     };
 
     return labels[filters.value.sortBy] || 'Name';
@@ -238,20 +223,12 @@ const printCollegeName = computed(() => {
     return unique.length === 1 ? unique[0] : 'Multiple Colleges';
 });
 
-const printableRows = computed(() => {
-    return filteredRows.value.map((row) => ({
-        ...row,
-        score: Number(row.total ?? 0),
-        items: Number(row.items ?? 100),
-    }));
-});
-
 const downloadPrintablePdf = () => {
     if (loading.value || filteredRows.value.length === 0) {
         return;
     }
 
-    const tableRows = printableRows.value
+    const tableRows = filteredRows.value
         .map((row, index) => `<tr>
             <td>${index + 1}</td>
             <td>${escapeHtml(row.student_full_name || '')}</td>
@@ -316,8 +293,17 @@ const escapeHtml = (value) => {
 const loadReports = async () => {
     loading.value = true;
     try {
-        const { data } = await axios.get('/api/entrance/reports/examinee-results');
-        rows.value = Array.isArray(data?.data) ? data.data : [];
+        const { data: reportsData } = await axios.get('/api/entrance/reports/examinee-results');
+
+        const reportRows = Array.isArray(reportsData?.data) ? reportsData.data : [];
+
+        rows.value = reportRows
+            .filter((row) => EXAM_TYPE_ALIASES.includes(String(row?.exam_type || '').trim().toLowerCase()))
+            .map((row) => ({
+                ...row,
+                score: Number(row.total ?? row.score ?? 0),
+                items: Number(row.items ?? row.total_items ?? 100),
+            }));
     } catch (error) {
         rows.value = [];
         window.Swal?.fire({
@@ -440,6 +426,11 @@ onMounted(loadReports);
     .table th,
     .table td {
         white-space: nowrap;
+    }
+
+    .table th:nth-child(3),
+    .table td:nth-child(3) {
+        display: none;
     }
 
     .print-sheet {

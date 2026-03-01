@@ -8,9 +8,28 @@ use App\Models\Employee;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 
 class EmployeeController extends Controller
 {
+    private function orgUnitTable(): string
+    {
+        return Schema::hasTable('colleges') ? 'colleges' : 'departments';
+    }
+
+    private function employeeCollegeForeignKey(): string
+    {
+        if (Schema::hasColumn('employees', 'college_id')) {
+            return 'college_id';
+        }
+
+        if (Schema::hasColumn('employees', 'department_id')) {
+            return 'department_id';
+        }
+
+        return 'college_id';
+    }
+
     public function index()
     {
         return response()->json([
@@ -20,6 +39,7 @@ class EmployeeController extends Controller
 
     public function store(Request $request)
     {
+        $orgTable = $this->orgUnitTable();
         $validated = $request->validate([
             'first_name'      => 'required|string|max:255',
             'middle_initial'  => 'nullable|string|max:2',
@@ -28,10 +48,10 @@ class EmployeeController extends Controller
             // Email removed from here
             'username'        => 'required|unique:users,username',
             'password'        => 'required|min:8',
-            'department_id'   => 'nullable|exists:departments,id',
+            'college_id'   => 'nullable|exists:' . $orgTable . ',id',
             'office_id'       => 'nullable|exists:offices,id',
             'roles'           => 'required|array|min:1',
-            'roles.*'         => 'string|in:dept_head,instructor,entrance_examiner',
+            'roles.*'         => 'string|in:college_dean,instructor,entrance_examiner',
         ]);
 
         return DB::transaction(function () use ($validated) {
@@ -54,11 +74,11 @@ class EmployeeController extends Controller
 
             $user->employee()->create([
                 'Employee_Number' => $generatedID,
-                'department_id'   => $validated['department_id'],
+                $this->employeeCollegeForeignKey() => $validated['college_id'],
                 'office_id'       => $validated['office_id'],
             ]);
 
-            return response()->json($user->load('employee.department', 'employee.office'), 201);
+            return response()->json($user->load('employee.college', 'employee.office'), 201);
         });
     }
 
@@ -66,6 +86,8 @@ class EmployeeController extends Controller
     {
         $employee = Employee::findOrFail($id);
         $user = $employee->user;
+        $orgTable = $this->orgUnitTable();
+        $collegeFk = $this->employeeCollegeForeignKey();
 
         $validated = $request->validate([
             'first_name'      => 'required|string',
@@ -73,13 +95,13 @@ class EmployeeController extends Controller
             // Email removed from here
             'username'        => 'required|unique:users,username,' . $user->id,
             'password'        => 'nullable|min:8',
-            'department_id'   => 'nullable|exists:departments,id',
+            'college_id'   => 'nullable|exists:' . $orgTable . ',id',
             'office_id'       => 'nullable|exists:offices,id',
             'roles'           => 'required|array|min:1',
-            'roles.*'         => 'string|in:dept_head,instructor,entrance_examiner',
+            'roles.*'         => 'string|in:college_dean,instructor,entrance_examiner',
         ]);
 
-        DB::transaction(function () use ($validated, $employee, $user) {
+        DB::transaction(function () use ($validated, $employee, $user, $collegeFk) {
             $roleString = implode(',', $validated['roles']);
 
             $user->update([
@@ -94,7 +116,7 @@ class EmployeeController extends Controller
             }
 
             $employee->update([
-                'department_id'   => $validated['department_id'],
+                $collegeFk => $validated['college_id'],
                 'office_id'       => $validated['office_id'],
             ]);
         });

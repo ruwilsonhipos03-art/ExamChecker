@@ -4,8 +4,8 @@
             <div class="card-body p-4">
                 <div class="row align-items-center">
                     <div class="col">
-                        <h4 class="fw-bold mb-1 text-dark">College Dean Workspace</h4>
-                        <p class="text-muted small mb-0">Create and manage screening examination sets</p>
+                        <h4 class="fw-bold mb-1 text-dark">Examiner Workspace</h4>
+                        <p class="text-muted small mb-0">Create and manage term examination sets</p>
                     </div>
                     <div class="col-auto">
                         <button @click="openModal()" class="btn btn-emerald fw-bold px-4 shadow-sm">
@@ -33,6 +33,7 @@
                                 <th class="ps-4 py-3 text-secondary small fw-bold">NO.</th>
                                 <th class="py-3 text-secondary small fw-bold">EXAM TITLE</th>
                                 <th class="py-3 text-secondary small fw-bold">CATEGORY</th>
+                                <th class="py-3 text-secondary small fw-bold">PROGRAM</th>
                                 <th class="py-3 text-secondary small fw-bold">EXAMINER</th>
                                 <th class="pe-4 py-3 text-end text-secondary small fw-bold">ACTIONS</th>
                             </tr>
@@ -61,11 +62,10 @@
                                         </span>
                                     </td>
                                     <td class="text-muted small">
-                                        <template v-if="exam.creator">
-                                            {{ exam.creator.name || `${exam.creator.first_name || ''}
-                                            ${exam.creator.last_name || ''}` }}
-                                        </template>
-                                        <template v-else>N/A</template>
+                                        {{ exam.program?.Program_Name || 'N/A' }}
+                                    </td>
+                                    <td class="text-muted small">
+                                        {{ examinerName(exam) }}
                                     </td>
                                     <td class="pe-4 text-end">
                                         <button @click="openModal(exam)" class="btn btn-icon btn-light-success me-2"
@@ -81,7 +81,7 @@
                                     </td>
                                 </tr>
                                 <tr v-if="filteredExams.length === 0">
-                                    <td colspan="5" class="text-center py-5 text-muted">No exams recorded yet.</td>
+                                    <td colspan="6" class="text-center py-5 text-muted">No exams recorded yet.</td>
                                 </tr>
                             </template>
                         </tbody>
@@ -103,6 +103,16 @@
                                 <label class="form-label small fw-bold text-secondary">EXAM TITLE</label>
                                 <input v-model="form.Exam_Title" type="text" class="form-control border-2" required>
                             </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-secondary">PROGRAM</label>
+                                <select v-model="form.program_id" class="form-select border-2" required>
+                                    <option value="" disabled>Select program</option>
+                                    <option v-for="program in programs" :key="program.id" :value="String(program.id)">
+                                        {{ program.Program_Name }}
+                                    </option>
+                                </select>
+                            </div>
+
                         </div>
                         <div class="modal-footer border-0 p-4 pt-0">
                             <button type="button" class="btn btn-light fw-bold" data-bs-dismiss="modal">CANCEL</button>
@@ -132,23 +142,33 @@ let modalInstance = null;
 const isLoading = ref(false);
 const isSaving = ref(false);
 const deletingId = ref(null);
-const EXAM_TYPE_ALIASES = ['entrance', 'screening', 'screening exam'];
+const programs = ref([]);
+const EXAM_TYPE_ALIASES = ['term', 'term exam', 'departmental', 'normal', 'normal exam'];
 
-const form = reactive({ Exam_Title: '', Exam_Type: 'Screening' });
+const form = reactive({ Exam_Title: '', Exam_Type: 'Term', program_id: '' });
 
 const resetForm = () => {
     form.Exam_Title = '';
-    form.Exam_Type = 'Screening';
+    form.Exam_Type = 'Term';
+    form.program_id = '';
 };
 
 const filteredExams = computed(() => {
-    const list = (exams.value || []).filter(exam =>
+    const data = Array.isArray(exams.value) ? exams.value : [];
+    const allowed = data.filter((exam) =>
         EXAM_TYPE_ALIASES.includes(String(exam?.Exam_Type || '').trim().toLowerCase())
     );
-    return list.filter(e =>
-        e.Exam_Title.toLowerCase().includes(searchQuery.value.toLowerCase())
-    );
+    return allowed.filter(e => {
+        const title = (e.Exam_Title || '').toLowerCase();
+        const type = (e.Exam_Type || '').toLowerCase();
+        return title.includes(searchQuery.value.toLowerCase()) || type.includes(searchQuery.value.toLowerCase());
+    });
 });
+
+const examinerName = (exam) => {
+    const first = String(exam?.examiner_first_name || exam?.creator?.user?.first_name || exam?.creator?.first_name || '').trim();
+    return first || 'N/A';
+};
 
 const fetchExams = async () => {
     isLoading.value = true;
@@ -162,31 +182,49 @@ const fetchExams = async () => {
     }
 };
 
+const fetchPrograms = async () => {
+    try {
+        const response = await axios.get('/api/programs');
+        programs.value = Array.isArray(response.data?.data) ? response.data.data : [];
+    } catch (error) {
+        try {
+            const fallback = await axios.get('/api/admin/programs');
+            programs.value = Array.isArray(fallback.data?.data) ? fallback.data.data : [];
+        } catch (fallbackError) {
+            programs.value = [];
+        }
+    }
+};
+
 const openModal = (exam = null) => {
     resetForm();
     editMode.value = !!exam;
     currentId.value = exam?.id || null;
     form.Exam_Title = exam?.Exam_Title || '';
-    form.Exam_Type = exam?.Exam_Type || 'Screening';
+    form.Exam_Type = exam?.Exam_Type || 'Term';
+    form.program_id = exam?.program_id ? String(exam.program_id) : '';
     modalInstance.show();
 };
 
 const saveExam = async () => {
     isSaving.value = true;
-    const url = editMode.value ? `/api/exams/${currentId.value}` : '/api/exams';
-    const method = editMode.value ? 'put' : 'post';
-
     try {
         const payload = {
             Exam_Title: form.Exam_Title,
             Exam_Type: form.Exam_Type,
+            program_id: form.program_id ? Number(form.program_id) : null,
         };
-        await axios[method](url, payload);
+        if (editMode.value) {
+            await axios.put(`/api/exams/${currentId.value}`, payload);
+        } else {
+            await axios.post('/api/exams', payload);
+        }
         modalInstance.hide();
         await fetchExams();
-        window.Toast.fire({ icon: 'success', title: 'Department records updated!' });
+        window.Toast?.fire({ icon: 'success', title: 'Data synced!' });
     } catch (e) {
-        window.Swal.fire({ icon: 'error', title: 'Process Error', text: 'Check your inputs.' });
+        const message = e?.response?.data?.message || 'Failed to save.';
+        window.Swal?.fire({ icon: 'error', title: 'Error', text: message });
     } finally {
         isSaving.value = false;
     }
@@ -194,13 +232,11 @@ const saveExam = async () => {
 
 const deleteExam = async (id) => {
     const result = await window.Swal.fire({
-        title: 'Confirm Deletion?',
-        text: 'This exam set will be permanently removed from your records.',
+        title: 'Delete this set?',
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#ef4444'
     });
-
     if (result.isConfirmed) {
         deletingId.value = id;
         try {
@@ -213,7 +249,7 @@ const deleteExam = async (id) => {
 };
 
 onMounted(() => {
-    fetchExams();
+    Promise.all([fetchExams(), fetchPrograms()]);
     modalInstance = new Modal(modalRef.value);
 });
 </script>
@@ -234,10 +270,6 @@ onMounted(() => {
 
 .bg-emerald {
     background-color: #10b981;
-}
-
-.border-emerald {
-    border-color: #10b981 !important;
 }
 
 .btn-icon {

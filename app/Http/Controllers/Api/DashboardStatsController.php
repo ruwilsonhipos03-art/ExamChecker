@@ -5,17 +5,59 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class DashboardStatsController extends Controller
 {
     private const PASSING_SCORE = 75;
 
+    private function employeeCollegeColumn(): ?string
+    {
+        if (Schema::hasColumn('employees', 'college_id')) {
+            return 'college_id';
+        }
+
+        if (Schema::hasColumn('employees', 'department_id')) {
+            return 'department_id';
+        }
+
+        return null;
+    }
+
+    private function programCollegeColumn(): ?string
+    {
+        if (Schema::hasColumn('programs', 'college_id')) {
+            return 'college_id';
+        }
+
+        if (Schema::hasColumn('programs', 'department_id')) {
+            return 'department_id';
+        }
+
+        return null;
+    }
+
+    private function orgUnitTable(): ?string
+    {
+        if (Schema::hasTable('colleges')) {
+            return 'colleges';
+        }
+
+        if (Schema::hasTable('departments')) {
+            return 'departments';
+        }
+
+        return null;
+    }
+
     public function admin()
     {
+        $orgUnitTable = $this->orgUnitTable();
+
         $totalEmployees = DB::table('users')
             ->where('role', '!=', 'admin') // Exclude the main admin
             ->where(function ($query) {
-                $query->whereRaw("FIND_IN_SET('dept_head', role) > 0")
+                $query->whereRaw("FIND_IN_SET('college_dean', role) > 0")
                     ->orWhereRaw("FIND_IN_SET('instructor', role) > 0")
                     ->orWhereRaw("FIND_IN_SET('entrance_examiner', role) > 0");
             })
@@ -24,19 +66,28 @@ class DashboardStatsController extends Controller
         return response()->json([
             'total_employees' => $totalEmployees,
             'total_students' => DB::table('users')->where('role', 'student')->count(),
-            'departments' => DB::table('departments')->count(),
+            'colleges' => $orgUnitTable ? DB::table($orgUnitTable)->count() : 0,
             'programs' => DB::table('programs')->count(),
         ]);
     }
 
-    public function deptHead()
+    public function collegeDean()
     {
         $userId = Auth::id();
+        $collegeColumn = $this->employeeCollegeColumn();
+        $programCollegeColumn = $this->programCollegeColumn();
+
+        if (!$collegeColumn || !$programCollegeColumn) {
+            return response()->json([
+                'message' => 'Required college assignment columns are missing from employees/programs tables.',
+            ], 422);
+        }
+
         $employee = DB::table('employees')
             ->where('user_id', $userId)
-            ->select('id', 'department_id')
+            ->selectRaw("id, {$collegeColumn} as college_id")
             ->first();
-        $departmentId = $employee?->department_id;
+        $departmentId = $employee?->college_id;
         $employeeId = $employee?->id;
 
         $examsCreated = DB::table('exams')
@@ -58,7 +109,7 @@ class DashboardStatsController extends Controller
 
         $studentIdsQuery = DB::table('students')
             ->join('programs', 'programs.id', '=', 'students.program_id')
-            ->where('programs.department_id', $departmentId)
+            ->where("programs.{$programCollegeColumn}", $departmentId)
             ->select('students.user_id')
             ->distinct();
 

@@ -54,7 +54,7 @@
                                     <td>
                                         <span class="badge bg-light text-emerald border border-emerald-subtle">
                                             <i class="bi bi-diagram-3 me-1"></i>
-                                            {{ program.department?.Department_Name || 'N/A' }}
+                                            {{ program.college?.College_Name || 'N/A' }}
                                         </span>
                                     </td>
                                     <td class="text-muted small">{{ program.created_at }}</td>
@@ -97,10 +97,10 @@
                             </div>
                             <div class="mb-3">
                                 <label class="form-label small fw-bold text-uppercase">Assigned College</label>
-                                <select v-model="form.department_id" class="form-select" required :disabled="isSaving">
+                                <select v-model="form.college_id" class="form-select" required :disabled="isSaving">
                                     <option value="" disabled>Select a college</option>
-                                    <option v-for="dept in departments" :key="dept.id" :value="dept.id">
-                                        {{ dept.Department_Name }}
+                                    <option v-for="dept in colleges" :key="dept.id" :value="dept.id">
+                                        {{ dept.College_Name }}
                                     </option>
                                 </select>
                             </div>
@@ -126,7 +126,7 @@ import axios from 'axios';
 import { Modal } from 'bootstrap';
 
 const programs = ref([]);
-const departments = ref([]);
+const colleges = ref([]);
 const searchQuery = ref('');
 const editMode = ref(false);
 const currentId = ref(null);
@@ -139,7 +139,7 @@ const deletingId = ref(null);
 
 const form = reactive({
     Program_Name: '',
-    department_id: ''
+    college_id: ''
 });
 
 const filteredPrograms = computed(() => {
@@ -150,7 +150,7 @@ const filteredPrograms = computed(() => {
 
 onMounted(() => {
     fetchPrograms();
-    fetchDepartments();
+    fetchcolleges();
     modalInstance = new Modal(modalRef.value);
 });
 
@@ -166,10 +166,10 @@ const fetchPrograms = async () => {
     }
 };
 
-const fetchDepartments = async () => {
+const fetchcolleges = async () => {
     try {
-        const response = await axios.get('/api/admin/departments');
-        departments.value = response.data.data;
+        const response = await axios.get('/api/admin/colleges');
+        colleges.value = response.data.data;
     } catch (error) {
         console.error("Dept Fetch Error:", error);
     }
@@ -180,12 +180,12 @@ const openModal = (program = null) => {
         editMode.value = true;
         currentId.value = program.id;
         form.Program_Name = program.Program_Name;
-        form.department_id = program.department_id;
+        form.college_id = program.college_id;
     } else {
         editMode.value = false;
         currentId.value = null;
         form.Program_Name = '';
-        form.department_id = '';
+        form.college_id = '';
     }
     modalInstance.show();
 };
