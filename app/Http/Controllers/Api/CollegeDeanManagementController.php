@@ -9,25 +9,62 @@ use App\Models\SubjectStudentAssignment;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
-class DeptHeadManagementController extends Controller
+class CollegeDeanManagementController extends Controller
 {
+    private function employeeOrgUnitColumn(): string
+    {
+        if (Schema::hasColumn('employees', 'department_id')) {
+            return 'department_id';
+        }
+
+        return 'college_id';
+    }
+
+    private function programOrgUnitColumn(): string
+    {
+        if (Schema::hasColumn('programs', 'department_id')) {
+            return 'department_id';
+        }
+
+        return 'college_id';
+    }
+
+    private function orgUnitTable(): string
+    {
+        return $this->programOrgUnitColumn() === 'department_id' ? 'departments' : 'colleges';
+    }
+
+    private function orgUnitNameColumn(): string
+    {
+        $table = $this->orgUnitTable();
+        if (Schema::hasColumn($table, 'Department_Name')) {
+            return 'Department_Name';
+        }
+
+        return 'College_Name';
+    }
+
     public function students(Request $request)
     {
-        $context = $this->deptHeadContext($request);
+        $context = $this->collegeDeanContext($request);
         if ($context['error']) {
             return $context['error'];
         }
 
-        $departmentId = $context['department_id'];
+        $departmentId = $context['college_id'];
+        $programOrgUnitColumn = $this->programOrgUnitColumn();
+        $orgUnitTable = $this->orgUnitTable();
+        $orgUnitNameColumn = $this->orgUnitNameColumn();
 
         $rows = DB::table('users as u')
             ->join('students as s', 's.user_id', '=', 'u.id')
             ->leftJoin('programs as p', 'p.id', '=', 's.program_id')
-            ->leftJoin('departments as d', 'd.id', '=', 'p.department_id')
+            ->leftJoin($orgUnitTable . ' as d', 'd.id', '=', 'p.' . $programOrgUnitColumn)
             ->where('u.role', 'student')
-            ->where('p.department_id', $departmentId)
+            ->where('p.' . $programOrgUnitColumn, $departmentId)
             ->orderBy('u.last_name')
             ->orderBy('u.first_name')
             ->select([
@@ -41,7 +78,7 @@ class DeptHeadManagementController extends Controller
                 's.Student_Number',
                 'p.id as program_id',
                 'p.Program_Name as program_name',
-                'd.Department_Name as department_name',
+                DB::raw('d.' . $orgUnitNameColumn . ' as College_Name'),
             ])
             ->get();
 
@@ -55,14 +92,14 @@ class DeptHeadManagementController extends Controller
                 'email' => (string) ($row->email ?? ''),
                 'program_id' => (int) ($row->program_id ?? 0),
                 'program_name' => (string) ($row->program_name ?? ''),
-                'department_name' => (string) ($row->department_name ?? ''),
+                'College_Name' => (string) ($row->College_Name ?? ''),
             ])->values(),
         ]);
     }
 
     public function subjects(Request $request)
     {
-        $context = $this->deptHeadContext($request);
+        $context = $this->collegeDeanContext($request);
         if ($context['error']) {
             return $context['error'];
         }
@@ -75,16 +112,17 @@ class DeptHeadManagementController extends Controller
 
     public function instructors(Request $request)
     {
-        $context = $this->deptHeadContext($request);
+        $context = $this->collegeDeanContext($request);
         if ($context['error']) {
             return $context['error'];
         }
 
-        $departmentId = $context['department_id'];
+        $departmentId = $context['college_id'];
+        $employeeOrgUnitColumn = $this->employeeOrgUnitColumn();
 
         $rows = User::query()
-            ->whereHas('employee', function ($query) use ($departmentId) {
-                $query->where('department_id', $departmentId);
+            ->whereHas('employee', function ($query) use ($departmentId, $employeeOrgUnitColumn) {
+                $query->where($employeeOrgUnitColumn, $departmentId);
             })
             ->get(['id', 'first_name', 'middle_initial', 'last_name', 'extension_name', 'role'])
             ->filter(fn (User $user) => $this->hasRole($user->role, 'instructor'))
@@ -103,18 +141,19 @@ class DeptHeadManagementController extends Controller
 
     public function studentAssignments(Request $request)
     {
-        $context = $this->deptHeadContext($request);
+        $context = $this->collegeDeanContext($request);
         if ($context['error']) {
             return $context['error'];
         }
 
-        $departmentId = $context['department_id'];
+        $departmentId = $context['college_id'];
+        $programOrgUnitColumn = $this->programOrgUnitColumn();
 
         $rows = SubjectStudentAssignment::query()
             ->with(['subject:id,Subject_Name', 'student:id,first_name,middle_initial,last_name,extension_name'])
-            ->whereHas('student', function ($query) use ($departmentId) {
-                $query->whereHas('studentProfile', function ($q) use ($departmentId) {
-                    $q->whereHas('program', fn ($programQuery) => $programQuery->where('department_id', $departmentId));
+            ->whereHas('student', function ($query) use ($departmentId, $programOrgUnitColumn) {
+                $query->whereHas('studentProfile', function ($q) use ($departmentId, $programOrgUnitColumn) {
+                    $q->whereHas('program', fn ($programQuery) => $programQuery->where($programOrgUnitColumn, $departmentId));
                 });
             })
             ->latest('id')
@@ -134,13 +173,14 @@ class DeptHeadManagementController extends Controller
 
     public function storeStudentAssignment(Request $request)
     {
-        $context = $this->deptHeadContext($request);
+        $context = $this->collegeDeanContext($request);
         if ($context['error']) {
             return $context['error'];
         }
 
-        $departmentId = $context['department_id'];
+        $departmentId = $context['college_id'];
         $deanUser = $context['user'];
+        $programOrgUnitColumn = $this->programOrgUnitColumn();
 
         $validated = $request->validate([
             'subject_id' => ['required', 'integer', 'exists:subjects,id'],
@@ -154,13 +194,13 @@ class DeptHeadManagementController extends Controller
         $studentIsInDepartment = DB::table('students as s')
             ->join('programs as p', 'p.id', '=', 's.program_id')
             ->where('s.user_id', (int) $validated['student_user_id'])
-            ->where('p.department_id', $departmentId)
+            ->where('p.' . $programOrgUnitColumn, $departmentId)
             ->exists();
 
         if (!$studentIsInDepartment) {
             return response()->json([
                 'success' => false,
-                'message' => 'Student is not under your department programs.',
+                'message' => 'Student is not under your college programs.',
             ], 422);
         }
 
@@ -179,18 +219,19 @@ class DeptHeadManagementController extends Controller
 
     public function destroyStudentAssignment(Request $request, int $id)
     {
-        $context = $this->deptHeadContext($request);
+        $context = $this->collegeDeanContext($request);
         if ($context['error']) {
             return $context['error'];
         }
 
-        $departmentId = $context['department_id'];
+        $departmentId = $context['college_id'];
+        $programOrgUnitColumn = $this->programOrgUnitColumn();
 
         $assignment = SubjectStudentAssignment::query()
             ->where('id', $id)
-            ->whereHas('student', function ($query) use ($departmentId) {
-                $query->whereHas('studentProfile', function ($q) use ($departmentId) {
-                    $q->whereHas('program', fn ($programQuery) => $programQuery->where('department_id', $departmentId));
+            ->whereHas('student', function ($query) use ($departmentId, $programOrgUnitColumn) {
+                $query->whereHas('studentProfile', function ($q) use ($departmentId, $programOrgUnitColumn) {
+                    $q->whereHas('program', fn ($programQuery) => $programQuery->where($programOrgUnitColumn, $departmentId));
                 });
             })
             ->first();
@@ -198,7 +239,7 @@ class DeptHeadManagementController extends Controller
         if (!$assignment) {
             return response()->json([
                 'success' => false,
-                'message' => 'Assignment not found in your department.',
+                'message' => 'Assignment not found in your college.',
             ], 404);
         }
 
@@ -212,17 +253,18 @@ class DeptHeadManagementController extends Controller
 
     public function instructorAssignments(Request $request)
     {
-        $context = $this->deptHeadContext($request);
+        $context = $this->collegeDeanContext($request);
         if ($context['error']) {
             return $context['error'];
         }
 
-        $departmentId = $context['department_id'];
+        $departmentId = $context['college_id'];
+        $employeeOrgUnitColumn = $this->employeeOrgUnitColumn();
 
         $rows = SubjectInstructorAssignment::query()
             ->with(['subject:id,Subject_Name', 'instructor:id,first_name,middle_initial,last_name,extension_name'])
-            ->whereHas('instructor', function ($query) use ($departmentId) {
-                $query->whereHas('employee', fn ($q) => $q->where('department_id', $departmentId));
+            ->whereHas('instructor', function ($query) use ($departmentId, $employeeOrgUnitColumn) {
+                $query->whereHas('employee', fn ($q) => $q->where($employeeOrgUnitColumn, $departmentId));
             })
             ->latest('id')
             ->get();
@@ -241,13 +283,14 @@ class DeptHeadManagementController extends Controller
 
     public function storeInstructorAssignment(Request $request)
     {
-        $context = $this->deptHeadContext($request);
+        $context = $this->collegeDeanContext($request);
         if ($context['error']) {
             return $context['error'];
         }
 
-        $departmentId = $context['department_id'];
+        $departmentId = $context['college_id'];
         $deanUser = $context['user'];
+        $employeeOrgUnitColumn = $this->employeeOrgUnitColumn();
 
         $validated = $request->validate([
             'subject_id' => ['required', 'integer', 'exists:subjects,id'],
@@ -264,13 +307,13 @@ class DeptHeadManagementController extends Controller
 
         $instructorIsInDepartment = DB::table('employees')
             ->where('user_id', $instructor->id)
-            ->where('department_id', $departmentId)
+            ->where($employeeOrgUnitColumn, $departmentId)
             ->exists();
 
         if (!$instructorIsInDepartment) {
             return response()->json([
                 'success' => false,
-                'message' => 'Instructor is not under your department.',
+                'message' => 'Instructor is not under your college.',
             ], 422);
         }
 
@@ -289,24 +332,25 @@ class DeptHeadManagementController extends Controller
 
     public function destroyInstructorAssignment(Request $request, int $id)
     {
-        $context = $this->deptHeadContext($request);
+        $context = $this->collegeDeanContext($request);
         if ($context['error']) {
             return $context['error'];
         }
 
-        $departmentId = $context['department_id'];
+        $departmentId = $context['college_id'];
+        $employeeOrgUnitColumn = $this->employeeOrgUnitColumn();
 
         $assignment = SubjectInstructorAssignment::query()
             ->where('id', $id)
-            ->whereHas('instructor', function ($query) use ($departmentId) {
-                $query->whereHas('employee', fn ($q) => $q->where('department_id', $departmentId));
+            ->whereHas('instructor', function ($query) use ($departmentId, $employeeOrgUnitColumn) {
+                $query->whereHas('employee', fn ($q) => $q->where($employeeOrgUnitColumn, $departmentId));
             })
             ->first();
 
         if (!$assignment) {
             return response()->json([
                 'success' => false,
-                'message' => 'Assignment not found in your department.',
+                'message' => 'Assignment not found in your college.',
             ], 404);
         }
 
@@ -318,10 +362,10 @@ class DeptHeadManagementController extends Controller
         ]);
     }
 
-    private function deptHeadContext(Request $request): array
+    private function collegeDeanContext(Request $request): array
     {
         $user = $request->user();
-        if (!$user || !$this->hasRole($user->role, 'dept_head')) {
+        if (!$user || !$this->hasRole($user->role, 'college_dean')) {
             return [
                 'error' => response()->json([
                     'success' => false,
@@ -330,12 +374,12 @@ class DeptHeadManagementController extends Controller
             ];
         }
 
-        $departmentId = (int) ($user->employee?->department_id ?? 0);
+        $departmentId = (int) ($user->employee?->college_id ?? $user->employee?->department_id ?? 0);
         if ($departmentId <= 0) {
             return [
                 'error' => response()->json([
                     'success' => false,
-                    'message' => 'College dean does not have an assigned department.',
+                    'message' => 'College dean does not have an assigned college.',
                 ], 422),
             ];
         }
@@ -343,7 +387,7 @@ class DeptHeadManagementController extends Controller
         return [
             'error' => null,
             'user' => $user,
-            'department_id' => $departmentId,
+            'college_id' => $departmentId,
         ];
     }
 
@@ -381,4 +425,3 @@ class DeptHeadManagementController extends Controller
         return trim($name);
     }
 }
-

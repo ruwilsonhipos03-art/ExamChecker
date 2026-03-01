@@ -113,7 +113,7 @@
                                 <span v-else class="badge text-bg-success">Qualified</span>
                             </div>
                             <div class="meta-row"><span class="meta-label">Department</span><span class="meta-value">{{
-                                    program.department_name || '-' }}</span></div>
+                                    program.College_Name || '-' }}</span></div>
                             <div class="meta-row"><span class="meta-label">Minimum Total</span><span
                                     class="meta-value">{{ program.minimum_total_score }}</span></div>
                             <div class="meta-row"><span class="meta-label">Your Total</span><span class="meta-value">{{

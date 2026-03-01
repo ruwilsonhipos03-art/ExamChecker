@@ -113,7 +113,7 @@ const activities = [
 
 const loadStats = async () => {
     try {
-        const { data } = await axios.get('/api/dept_head/dashboard/stats');
+        const { data } = await axios.get('/api/college_dean/dashboard/stats');
         stats.value = [
             { label: 'Exams Created', value: Number(data.exams_created || 0).toLocaleString(), icon: 'bi-file-earmark-plus-fill', colorClass: 'bg-emerald-light text-emerald' },
             { label: 'Total Examinees', value: Number(data.total_examinees || 0).toLocaleString(), icon: 'bi-people-fill', colorClass: 'bg-emerald-light text-emerald' },

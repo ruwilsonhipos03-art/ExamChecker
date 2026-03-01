@@ -14,8 +14,8 @@
 
 <script setup>
 import { ref } from 'vue';
-import TopNav from '../components/depthead/topnav.vue';
-import Sidebar from '../components/depthead/sidebar.vue';
+import TopNav from '../components/college-dean/topnav.vue';
+import Sidebar from '../components/college-dean/sidebar.vue';
 
 const isCollapsed = ref(false);
 </script>

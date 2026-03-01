@@ -43,7 +43,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::apiResource('subjects', App\Http\Controllers\Api\SubjectController::class);
         Route::apiResource('offices', App\Http\Controllers\Api\OfficeController::class);
-        Route::apiResource('departments', App\Http\Controllers\Api\DepartmentController::class);
+        Route::apiResource('colleges', App\Http\Controllers\Api\CollegeController::class);
         Route::apiResource('exam-schedules', App\Http\Controllers\Api\ExamScheduleController::class);
         Route::apiResource('programs', App\Http\Controllers\Api\ProgramController::class);
         Route::apiResource('program-requirements', App\Http\Controllers\Api\ProgramRequirementController::class);
@@ -51,19 +51,19 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Department Head Group
-    Route::prefix('dept_head')->group(function () {
-        Route::get('dashboard/stats', [\App\Http\Controllers\Api\DashboardStatsController::class, 'deptHead']);
-        Route::get('students', [\App\Http\Controllers\Api\DeptHeadManagementController::class, 'students']);
-        Route::get('subjects', [\App\Http\Controllers\Api\DeptHeadManagementController::class, 'subjects']);
-        Route::get('instructors', [\App\Http\Controllers\Api\DeptHeadManagementController::class, 'instructors']);
+    Route::prefix('college_dean')->group(function () {
+        Route::get('dashboard/stats', [\App\Http\Controllers\Api\DashboardStatsController::class, 'collegeDean']);
+        Route::get('students', [\App\Http\Controllers\Api\CollegeDeanManagementController::class, 'students']);
+        Route::get('subjects', [\App\Http\Controllers\Api\CollegeDeanManagementController::class, 'subjects']);
+        Route::get('instructors', [\App\Http\Controllers\Api\CollegeDeanManagementController::class, 'instructors']);
 
-        Route::get('subject-assignments/students', [\App\Http\Controllers\Api\DeptHeadManagementController::class, 'studentAssignments']);
-        Route::post('subject-assignments/students', [\App\Http\Controllers\Api\DeptHeadManagementController::class, 'storeStudentAssignment']);
-        Route::delete('subject-assignments/students/{id}', [\App\Http\Controllers\Api\DeptHeadManagementController::class, 'destroyStudentAssignment']);
+        Route::get('subject-assignments/students', [\App\Http\Controllers\Api\CollegeDeanManagementController::class, 'studentAssignments']);
+        Route::post('subject-assignments/students', [\App\Http\Controllers\Api\CollegeDeanManagementController::class, 'storeStudentAssignment']);
+        Route::delete('subject-assignments/students/{id}', [\App\Http\Controllers\Api\CollegeDeanManagementController::class, 'destroyStudentAssignment']);
 
-        Route::get('subject-assignments/instructors', [\App\Http\Controllers\Api\DeptHeadManagementController::class, 'instructorAssignments']);
-        Route::post('subject-assignments/instructors', [\App\Http\Controllers\Api\DeptHeadManagementController::class, 'storeInstructorAssignment']);
-        Route::delete('subject-assignments/instructors/{id}', [\App\Http\Controllers\Api\DeptHeadManagementController::class, 'destroyInstructorAssignment']);
+        Route::get('subject-assignments/instructors', [\App\Http\Controllers\Api\CollegeDeanManagementController::class, 'instructorAssignments']);
+        Route::post('subject-assignments/instructors', [\App\Http\Controllers\Api\CollegeDeanManagementController::class, 'storeInstructorAssignment']);
+        Route::delete('subject-assignments/instructors/{id}', [\App\Http\Controllers\Api\CollegeDeanManagementController::class, 'destroyInstructorAssignment']);
     });
 
     // Entrance Group

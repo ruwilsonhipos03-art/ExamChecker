@@ -16,6 +16,55 @@ class ReportController extends Controller
     private const PASSING_SCORE = 75;
     private const ENTRANCE_TYPE_ALIASES = ['entrance', 'entrance exam', 'screening', 'screening exam'];
 
+    private function orgUnitTable(): string
+    {
+        if ($this->programOrgUnitColumn() === 'department_id' || $this->employeeOrgUnitColumn() === 'department_id') {
+            return 'departments';
+        }
+
+        return Schema::hasTable('colleges') ? 'colleges' : 'departments';
+    }
+
+    private function orgUnitNameColumn(): string
+    {
+        $table = $this->orgUnitTable();
+        if (Schema::hasColumn($table, 'College_Name')) {
+            return 'College_Name';
+        }
+
+        if (Schema::hasColumn($table, 'Department_Name')) {
+            return 'Department_Name';
+        }
+
+        return 'College_Name';
+    }
+
+    private function employeeOrgUnitColumn(): string
+    {
+        if (Schema::hasColumn('employees', 'department_id')) {
+            return 'department_id';
+        }
+
+        if (Schema::hasColumn('employees', 'college_id')) {
+            return 'college_id';
+        }
+
+        return 'college_id';
+    }
+
+    private function programOrgUnitColumn(): string
+    {
+        if (Schema::hasColumn('programs', 'department_id')) {
+            return 'department_id';
+        }
+
+        if (Schema::hasColumn('programs', 'college_id')) {
+            return 'college_id';
+        }
+
+        return 'college_id';
+    }
+
     /**
      * Fetch all users formatted for the Reports Dashboard.
      */
@@ -23,7 +72,7 @@ class ReportController extends Controller
     {
         try {
             // Eager load relationships to avoid N+1 performance issues
-            $users = User::with(['employee.department', 'employee.office'])
+            $users = User::with(['employee.college', 'employee.office'])
                 ->latest()
                 ->get();
 
@@ -35,9 +84,9 @@ class ReportController extends Controller
                     'full_name'       => $this->formatFullName($user),
                     'email'           => $user->email,
                     'username'        => $user->username,
-                    'role'            => $user->role, // instructor, student, dept_head, etc.
-                    'department_id'   => $user->employee->department_id ?? null,
-                    'department_name' => $user->employee->department->Department_Name ?? 'N/A',
+                    'role'            => $user->role, // instructor, student, college_dean, etc.
+                    'college_id'   => $user->employee->college_id ?? null,
+                    'College_Name' => $user->employee->college->College_Name ?? 'N/A',
                     'office_name'     => $user->employee->office->Office_Name ?? 'N/A',
                     // Assuming 'status' is active if email is verified, or add your custom logic
                     'status'          => $user->email_verified_at ? 'active' : 'active',
@@ -74,7 +123,7 @@ class ReportController extends Controller
     public function entranceExamineeResults(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !$this->hasAnyRole($user->role, ['entrance_examiner', 'dept_head', 'instructor'])) {
+        if (!$user || !$this->hasAnyRole($user->role, ['entrance_examiner', 'college_dean', 'instructor'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Only entrance examiners, college deans, and instructors can access this report.',
@@ -89,12 +138,16 @@ class ReportController extends Controller
             ]);
         }
 
+        $orgUnitTable = $this->orgUnitTable();
+        $orgUnitNameColumn = $this->orgUnitNameColumn();
+        $employeeOrgUnitColumn = $this->employeeOrgUnitColumn();
+
         $rows = DB::table('answer_sheets as ans')
             ->join('users as u', 'u.id', '=', 'ans.user_id')
             ->join('exams as e', 'e.id', '=', 'ans.exam_id')
             ->leftJoin('programs as p', 'p.id', '=', 'e.program_id')
             ->leftJoin('employees as emp', 'emp.id', '=', 'e.created_by')
-            ->leftJoin('departments as d', 'd.id', '=', 'emp.department_id')
+            ->leftJoin($orgUnitTable . ' as d', 'd.id', '=', 'emp.' . $employeeOrgUnitColumn)
             ->leftJoin('exam_results as er', 'er.answer_sheet_id', '=', 'ans.id')
             ->leftJoin('subjects as s', 's.id', '=', 'er.subject_id')
             ->where('u.role', 'student')
@@ -105,7 +158,7 @@ class ReportController extends Controller
                 'e.Exam_Title',
                 'e.Exam_Type',
                 'p.Program_Name',
-                'd.Department_Name',
+                'd.' . $orgUnitNameColumn,
                 'ans.total_score',
                 'u.last_name',
                 'u.first_name',
@@ -117,7 +170,7 @@ class ReportController extends Controller
                 e.Exam_Title as exam_name,
                 e.Exam_Type as exam_type,
                 COALESCE(p.Program_Name, 'N/A') as program_name,
-                COALESCE(d.Department_Name, 'N/A') as college_name,
+                COALESCE(d.{$orgUnitNameColumn}, 'N/A') as college_name,
                 ans.total_score as total,
                 u.last_name,
                 u.first_name,
@@ -169,13 +222,13 @@ class ReportController extends Controller
                 ];
             })
             ->values();
-        if ($this->hasScannedByColumn() && !$this->hasAnyRole($user->role, ['dept_head'])) {
+        if ($this->hasScannedByColumn() && !$this->hasAnyRole($user->role, ['college_dean'])) {
             $rows = DB::table('answer_sheets as ans')
                 ->join('users as u', 'u.id', '=', 'ans.user_id')
                 ->join('exams as e', 'e.id', '=', 'ans.exam_id')
                 ->leftJoin('programs as p', 'p.id', '=', 'e.program_id')
                 ->leftJoin('employees as emp', 'emp.id', '=', 'e.created_by')
-                ->leftJoin('departments as d', 'd.id', '=', 'emp.department_id')
+                ->leftJoin($orgUnitTable . ' as d', 'd.id', '=', 'emp.' . $employeeOrgUnitColumn)
                 ->leftJoin('exam_results as er', 'er.answer_sheet_id', '=', 'ans.id')
                 ->leftJoin('subjects as s', 's.id', '=', 'er.subject_id')
                 ->where('u.role', 'student')
@@ -187,7 +240,7 @@ class ReportController extends Controller
                     'e.Exam_Title',
                     'e.Exam_Type',
                     'p.Program_Name',
-                    'd.Department_Name',
+                    'd.' . $orgUnitNameColumn,
                     'ans.total_score',
                     'u.last_name',
                     'u.first_name',
@@ -199,7 +252,7 @@ class ReportController extends Controller
                     e.Exam_Title as exam_name,
                     e.Exam_Type as exam_type,
                     COALESCE(p.Program_Name, 'N/A') as program_name,
-                    COALESCE(d.Department_Name, 'N/A') as college_name,
+                    COALESCE(d.{$orgUnitNameColumn}, 'N/A') as college_name,
                     ans.total_score as total,
                     u.last_name,
                     u.first_name,
@@ -326,7 +379,7 @@ class ReportController extends Controller
     public function entranceExamineeResultDetail(Request $request, int $answerSheetId)
     {
         $user = Auth::user();
-        if (!$user || !$this->hasAnyRole($user->role, ['entrance_examiner', 'dept_head', 'instructor'])) {
+        if (!$user || !$this->hasAnyRole($user->role, ['entrance_examiner', 'college_dean', 'instructor'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Only entrance examiners, college deans, and instructors can access this report detail.',
@@ -341,7 +394,7 @@ class ReportController extends Controller
             ->where('status', 'checked')
             ->whereIn('exam_id', $ownedExamIds);
 
-        if ($this->hasScannedByColumn() && !$this->hasAnyRole($user->role, ['dept_head'])) {
+        if ($this->hasScannedByColumn() && !$this->hasAnyRole($user->role, ['college_dean'])) {
             $sheetQuery->where('scanned_by', $user->id);
         }
 
@@ -513,10 +566,12 @@ class ReportController extends Controller
             return [];
         }
 
-        if ($user && $this->hasAnyRole($user->role, ['dept_head'])) {
+        if ($user && $this->hasAnyRole($user->role, ['college_dean'])) {
+            $employeeOrgUnitColumn = $this->employeeOrgUnitColumn();
+            $programOrgUnitColumn = $this->programOrgUnitColumn();
             $departmentId = (int) DB::table('employees')
                 ->where('user_id', $userId)
-                ->value('department_id');
+                ->value($employeeOrgUnitColumn);
 
             if ($departmentId <= 0) {
                 return [];
@@ -525,9 +580,9 @@ class ReportController extends Controller
             return DB::table('exams as e')
                 ->leftJoin('employees as emp', 'emp.id', '=', 'e.created_by')
                 ->leftJoin('programs as p', 'p.id', '=', 'e.program_id')
-                ->where(function ($query) use ($departmentId) {
-                    $query->where('p.department_id', $departmentId)
-                        ->orWhere('emp.department_id', $departmentId);
+                ->where(function ($query) use ($departmentId, $employeeOrgUnitColumn, $programOrgUnitColumn) {
+                    $query->where('p.' . $programOrgUnitColumn, $departmentId)
+                        ->orWhere('emp.' . $employeeOrgUnitColumn, $departmentId);
                 })
                 ->distinct()
                 ->pluck('e.id')

@@ -29,7 +29,7 @@ class InstructorManagementController extends Controller
             ->join('users as u', 'u.id', '=', 'ssa.student_user_id')
             ->leftJoin('students as st', 'st.user_id', '=', 'u.id')
             ->leftJoin('programs as p', 'p.id', '=', 'st.program_id')
-            ->leftJoin('departments as d', 'd.id', '=', 'p.department_id')
+            ->leftJoin('colleges as d', 'd.id', '=', 'p.college_id')
             ->leftJoin('subjects as subj', 'subj.id', '=', 'ssa.subject_id')
             ->where('u.role', 'student')
             ->whereIn('ssa.subject_id', $subjectIds)
@@ -44,7 +44,7 @@ class InstructorManagementController extends Controller
                 'st.Student_Number',
                 'p.id',
                 'p.Program_Name',
-                'd.Department_Name'
+                'd.College_Name'
             )
             ->selectRaw("
                 u.id,
@@ -57,7 +57,7 @@ class InstructorManagementController extends Controller
                 st.Student_Number,
                 p.id as program_id,
                 p.Program_Name as program_name,
-                d.Department_Name as department_name,
+                d.College_Name as College_Name,
                 GROUP_CONCAT(DISTINCT subj.Subject_Name SEPARATOR ', ') as subject_names
             ")
             ->orderBy('u.last_name')
@@ -74,7 +74,7 @@ class InstructorManagementController extends Controller
                 'email' => (string) ($row->email ?? ''),
                 'program_id' => (int) ($row->program_id ?? 0),
                 'program_name' => (string) ($row->program_name ?? ''),
-                'department_name' => (string) ($row->department_name ?? ''),
+                'College_Name' => (string) ($row->College_Name ?? ''),
                 'subject_names' => (string) ($row->subject_names ?? ''),
             ])->values(),
         ]);
@@ -135,7 +135,7 @@ class InstructorManagementController extends Controller
             ->join('users as u', 'u.id', '=', 'ssa.student_user_id')
             ->leftJoin('students as st', 'st.user_id', '=', 'u.id')
             ->leftJoin('programs as p', 'p.id', '=', 'st.program_id')
-            ->leftJoin('departments as d', 'd.id', '=', 'p.department_id')
+            ->leftJoin('colleges as d', 'd.id', '=', 'p.college_id')
             ->where('ssa.subject_id', $subjectId)
             ->where('u.role', 'student')
             ->orderBy('u.last_name')
@@ -150,7 +150,7 @@ class InstructorManagementController extends Controller
                 'u.email',
                 'st.Student_Number',
                 'p.Program_Name as program_name',
-                'd.Department_Name as department_name',
+                'd.College_Name as College_Name',
             ])
             ->get();
 
@@ -165,7 +165,7 @@ class InstructorManagementController extends Controller
                 'username' => (string) ($row->username ?? ''),
                 'email' => (string) ($row->email ?? ''),
                 'program_name' => (string) ($row->program_name ?? ''),
-                'department_name' => (string) ($row->department_name ?? ''),
+                'College_Name' => (string) ($row->College_Name ?? ''),
             ])->values(),
         ]);
     }

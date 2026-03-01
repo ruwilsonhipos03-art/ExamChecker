@@ -75,7 +75,7 @@ const userInitials = computed(() => {
 // Format role for display and use user-facing labels where needed.
 const formatRole = (role) => {
     if (!role) return 'User';
-    if (role === 'dept_head') return 'College Dean';
+    if (role === 'college_dean') return 'College Dean';
     return role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 };
 

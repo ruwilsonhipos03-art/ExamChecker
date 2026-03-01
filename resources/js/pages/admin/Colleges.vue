@@ -47,14 +47,14 @@
                             </tr>
 
                             <template v-else>
-                                <tr v-for="(dept, index) in filteredDepartments" :key="dept.id">
+                                <tr v-for="(dept, index) in filteredcolleges" :key="dept.id">
                                     <td class="ps-4 text-muted">#{{ index + 1 }}</td>
                                     <td>
                                         <div class="d-flex align-items-center">
                                             <div class="dept-icon me-3">
                                                 <i class="bi bi-diagram-3 text-emerald"></i>
                                             </div>
-                                            <span class="fw-semibold text-dark">{{ dept.Department_Name }}</span>
+                                            <span class="fw-semibold text-dark">{{ dept.College_Name }}</span>
                                         </div>
                                     </td>
                                     <td class="text-muted">{{ dept.created_at }}</td>
@@ -72,7 +72,7 @@
                                     </td>
                                 </tr>
 
-                                <tr v-if="filteredDepartments.length === 0">
+                                <tr v-if="filteredcolleges.length === 0">
                                     <td colspan="4" class="text-center py-5 text-muted">No colleges found.</td>
                                 </tr>
                             </template>
@@ -94,7 +94,7 @@
                             <div class="mb-3">
                                 <label class="form-label small fw-bold text-secondary text-uppercase">College
                                     Name</label>
-                                <input v-model="form.Department_Name" type="text"
+                                <input v-model="form.College_Name" type="text"
                                     class="form-control form-control-lg border-2"
                                     placeholder="e.g. College of Information Technology" required
                                     :disabled="isSaving">
@@ -123,7 +123,7 @@ import { Modal } from 'bootstrap';
 import Swal from 'sweetalert2';
 
 // State
-const departments = ref([]);
+const colleges = ref([]);
 const searchQuery = ref('');
 const editMode = ref(false);
 const currentId = ref(null);
@@ -134,7 +134,7 @@ const isLoading = ref(false);
 const isSaving = ref(false);
 const deletingId = ref(null);
 
-const form = reactive({ Department_Name: '' });
+const form = reactive({ College_Name: '' });
 
 // Configure SweetAlert2 Toast
 const Toast = Swal.mixin({
@@ -149,22 +149,22 @@ const Toast = Swal.mixin({
     }
 });
 
-const filteredDepartments = computed(() => {
-    return departments.value.filter(d =>
-        d.Department_Name.toLowerCase().includes(searchQuery.value.toLowerCase())
+const filteredcolleges = computed(() => {
+    return colleges.value.filter(d =>
+        d.College_Name.toLowerCase().includes(searchQuery.value.toLowerCase())
     );
 });
 
 onMounted(() => {
-    fetchDepartments();
+    fetchcolleges();
     modalInstance = new Modal(modalRef.value);
 });
 
-const fetchDepartments = async () => {
+const fetchcolleges = async () => {
     isLoading.value = true;
     try {
-        const response = await axios.get('/api/admin/departments');
-        departments.value = response.data.data || response.data;
+        const response = await axios.get('/api/admin/colleges');
+        colleges.value = response.data.data || response.data;
     } catch (error) {
         console.error("Fetch error:", error);
     } finally {
@@ -176,11 +176,11 @@ const openModal = (dept = null) => {
     if (dept) {
         editMode.value = true;
         currentId.value = dept.id;
-        form.Department_Name = dept.Department_Name;
+        form.College_Name = dept.College_Name;
     } else {
         editMode.value = false;
         currentId.value = null;
-        form.Department_Name = '';
+        form.College_Name = '';
     }
     modalInstance.show();
 };
@@ -189,14 +189,14 @@ const saveDepartment = async () => {
     isSaving.value = true;
     try {
         if (editMode.value) {
-            await axios.put(`/api/admin/departments/${currentId.value}`, form);
+            await axios.put(`/api/admin/colleges/${currentId.value}`, form);
             Toast.fire({ icon: 'success', title: 'College updated successfully' });
         } else {
-            await axios.post('/api/admin/departments', form);
+            await axios.post('/api/admin/colleges', form);
             Toast.fire({ icon: 'success', title: 'New college added' });
         }
         modalInstance.hide();
-        await fetchDepartments();
+        await fetchcolleges();
     } catch (error) {
         Swal.fire({
             icon: 'error',
@@ -212,7 +212,7 @@ const saveDepartment = async () => {
 const deleteDepartment = async (dept) => {
     const result = await Swal.fire({
         title: 'Delete College?',
-        text: `Are you sure you want to delete "${dept.Department_Name}"? This action cannot be undone.`,
+        text: `Are you sure you want to delete "${dept.College_Name}"? This action cannot be undone.`,
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#ef4444',
@@ -224,8 +224,8 @@ const deleteDepartment = async (dept) => {
     if (result.isConfirmed) {
         deletingId.value = dept.id;
         try {
-            await axios.delete(`/api/admin/departments/${dept.id}`);
-            await fetchDepartments();
+            await axios.delete(`/api/admin/colleges/${dept.id}`);
+            await fetchcolleges();
             Toast.fire({ icon: 'success', title: 'College has been deleted' });
         } catch (error) {
             Swal.fire({

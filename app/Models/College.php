@@ -4,14 +4,28 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Schema;
 
-class Department extends Model
+class College extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'Department_Name',
+        'College_Name',
     ];
+
+    public function getTable()
+    {
+        if (Schema::hasTable('colleges')) {
+            return 'colleges';
+        }
+
+        if (Schema::hasTable('departments')) {
+            return 'departments';
+        }
+
+        return parent::getTable();
+    }
 
     public function programs()
     {

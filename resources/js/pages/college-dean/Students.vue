@@ -81,7 +81,7 @@ const filteredStudents = computed(() => {
 const loadStudents = async () => {
   loading.value = true;
   try {
-    const { data } = await axios.get('/api/dept_head/students');
+    const { data } = await axios.get('/api/college_dean/students');
     students.value = Array.isArray(data?.data) ? data.data : [];
   } catch (error) {
     students.value = [];

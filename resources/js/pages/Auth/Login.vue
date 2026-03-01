@@ -83,7 +83,7 @@ const form = reactive({
  */
 const roleRoutes = {
     'admin': '/admin/dashboard',
-    'dept_head': '/college-dean/dashboard',
+    'college_dean': '/college-dean/dashboard',
     'instructor': '/instructor/dashboard',
     'entrance_examiner': '/entrance/dashboard',
     'student': '/student/dashboard'

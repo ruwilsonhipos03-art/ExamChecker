@@ -65,11 +65,7 @@
                                         {{ exam.program?.Program_Name || 'N/A' }}
                                     </td>
                                     <td class="text-muted small">
-                                        <template v-if="exam.creator">
-                                            {{ exam.creator.name || `${exam.creator.first_name || ''}
-                                            ${exam.creator.last_name || ''}` }}
-                                        </template>
-                                        <template v-else>N/A</template>
+                                        {{ examinerName(exam) }}
                                     </td>
                                     <td class="pe-4 text-end">
                                         <button @click="openModal(exam)" class="btn btn-icon btn-light-success me-2"
@@ -168,6 +164,11 @@ const filteredExams = computed(() => {
         return title.includes(searchQuery.value.toLowerCase()) || type.includes(searchQuery.value.toLowerCase());
     });
 });
+
+const examinerName = (exam) => {
+    const first = String(exam?.examiner_first_name || exam?.creator?.user?.first_name || exam?.creator?.first_name || '').trim();
+    return first || 'N/A';
+};
 
 const fetchExams = async () => {
     isLoading.value = true;

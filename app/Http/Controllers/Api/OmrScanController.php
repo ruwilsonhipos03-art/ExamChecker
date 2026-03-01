@@ -22,7 +22,7 @@ class OmrScanController extends Controller
     public function check(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !$this->hasAnyRole($user->role, ['entrance_examiner', 'dept_head', 'instructor'])) {
+        if (!$user || !$this->hasAnyRole($user->role, ['entrance_examiner', 'college_dean', 'instructor'])) {
             return response()->json([
                 'message' => 'Only entrance examiners, college deans, and instructors can check answer sheets.',
             ], 403);

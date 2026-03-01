@@ -71,7 +71,7 @@ class StudentRecommendationController extends Controller
         $totalScore = (int) ($sheet->total_score ?? 0);
 
         $requirements = ProgramRequirement::query()
-            ->with('program.department')
+            ->with('program.college')
             ->get();
 
         $programs = $requirements
@@ -96,7 +96,7 @@ class StudentRecommendationController extends Controller
                     'program_requirement_id' => (int) $requirement->id,
                     'program_id' => (int) $requirement->program_id,
                     'program_name' => (string) ($requirement->program?->Program_Name ?? ''),
-                    'department_name' => (string) ($requirement->program?->department?->Department_Name ?? ''),
+                    'College_Name' => (string) ($requirement->program?->college?->College_Name ?? ''),
                     'minimum_total_score' => $minimumScore,
                     'student_total_score' => $totalScore,
                     'is_qualified' => $isQualified,

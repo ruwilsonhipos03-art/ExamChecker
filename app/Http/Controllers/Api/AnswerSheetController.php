@@ -27,7 +27,7 @@ class AnswerSheetController extends Controller
         $user = Auth::user();
         $userId = Auth::id();
 
-        $query = AnswerSheet::with(['exam.creator.department', 'exam.program']);
+        $query = AnswerSheet::with(['exam.creator.college', 'exam.program']);
 
         if ($user && $user->role === 'student') {
             return $query
@@ -332,14 +332,14 @@ class AnswerSheetController extends Controller
                 'recommendations.program_id',
                 'recommendations.rank',
                 'programs.Program_Name as program_name',
-                'programs.department_id as department_id',
+                'programs.college_id as college_id',
             ])
             ->map(function ($row) {
                 return [
                     'program_id' => (int) $row->program_id,
                     'rank' => (int) $row->rank,
                     'program_name' => trim((string) $row->program_name),
-                    'department_id' => (int) ($row->department_id ?? 0),
+                    'college_id' => (int) ($row->college_id ?? 0),
                 ];
             })
             ->values()
@@ -367,7 +367,7 @@ class AnswerSheetController extends Controller
 
         $targetIndex = $this->findProgramIndexForExam(
             (string) ($exam?->Exam_Title ?? ''),
-            (int) ($exam?->creator?->department_id ?? 0),
+            (int) ($exam?->creator?->college_id ?? 0),
             $selectedPrograms,
             $statuses
         );
@@ -447,25 +447,25 @@ class AnswerSheetController extends Controller
             ->where('ans.user_id', $userId)
             ->whereIn(DB::raw('LOWER(e.Exam_Type)'), self::SCREENING_TYPE_ALIASES)
             ->orderByDesc('ans.updated_at')
-            ->select('ans.status', 'ans.total_score', 'e.Exam_Title', 'emp.department_id')
+            ->select('ans.status', 'ans.total_score', 'e.Exam_Title', 'emp.college_id')
             ->get()
             ->map(fn ($row) => [
                 'status' => strtolower(trim((string) ($row->status ?? ''))),
                 'total_score' => isset($row->total_score) ? (int) $row->total_score : null,
                 'exam_title' => (string) ($row->Exam_Title ?? ''),
-                'department_id' => (int) ($row->department_id ?? 0),
+                'college_id' => (int) ($row->college_id ?? 0),
             ])
             ->values()
             ->all();
 
         $deptProgramCounts = collect($programs)
-            ->groupBy(fn (array $program) => (int) ($program['department_id'] ?? 0))
+            ->groupBy(fn (array $program) => (int) ($program['college_id'] ?? 0))
             ->map(fn ($rows) => count($rows))
             ->all();
 
         return collect($programs)->map(function (array $program) use ($attempts, $deptProgramCounts) {
             $programName = trim((string) ($program['program_name'] ?? ''));
-            $programDepartmentId = (int) ($program['department_id'] ?? 0);
+            $programDepartmentId = (int) ($program['college_id'] ?? 0);
             $allowDepartmentFallback = $programDepartmentId > 0
                 && (($deptProgramCounts[$programDepartmentId] ?? 0) === 1);
 
@@ -473,7 +473,7 @@ class AnswerSheetController extends Controller
                 return $this->examMatchesProgram(
                     (string) ($attempt['exam_title'] ?? ''),
                     $programName,
-                    (int) ($attempt['department_id'] ?? 0),
+                    (int) ($attempt['college_id'] ?? 0),
                     $programDepartmentId,
                     $allowDepartmentFallback
                 );
@@ -514,7 +514,7 @@ class AnswerSheetController extends Controller
         if ($examDepartmentId > 0) {
             $deptMatches = [];
             foreach ($programs as $index => $program) {
-                if ((int) ($program['department_id'] ?? 0) === $examDepartmentId) {
+                if ((int) ($program['college_id'] ?? 0) === $examDepartmentId) {
                     $deptMatches[] = $index;
                 }
             }
