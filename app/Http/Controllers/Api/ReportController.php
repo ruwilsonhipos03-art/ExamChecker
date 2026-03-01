@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class ReportController extends Controller
 {
@@ -72,16 +73,39 @@ class ReportController extends Controller
 
     public function entranceExamineeResults(Request $request)
     {
+        $user = Auth::user();
+        if (!$user || !$this->hasAnyRole($user->role, ['entrance_examiner', 'dept_head', 'instructor'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only entrance examiners, college deans, and instructors can access this report.',
+            ], 403);
+        }
+
+        $ownedExamIds = $this->ownedExamIdsForUser((int) $user->id, $user);
+        if (empty($ownedExamIds)) {
+            return response()->json([
+                'success' => true,
+                'data' => [],
+            ]);
+        }
+
         $rows = DB::table('answer_sheets as ans')
             ->join('users as u', 'u.id', '=', 'ans.user_id')
             ->join('exams as e', 'e.id', '=', 'ans.exam_id')
+            ->leftJoin('programs as p', 'p.id', '=', 'e.program_id')
+            ->leftJoin('employees as emp', 'emp.id', '=', 'e.created_by')
+            ->leftJoin('departments as d', 'd.id', '=', 'emp.department_id')
             ->leftJoin('exam_results as er', 'er.answer_sheet_id', '=', 'ans.id')
             ->leftJoin('subjects as s', 's.id', '=', 'er.subject_id')
             ->where('u.role', 'student')
             ->where('ans.status', 'checked')
+            ->whereIn('ans.exam_id', $ownedExamIds)
             ->groupBy(
                 'ans.id',
                 'e.Exam_Title',
+                'e.Exam_Type',
+                'p.Program_Name',
+                'd.Department_Name',
                 'ans.total_score',
                 'u.last_name',
                 'u.first_name',
@@ -91,6 +115,9 @@ class ReportController extends Controller
             ->selectRaw("
                 ans.id as answer_sheet_id,
                 e.Exam_Title as exam_name,
+                e.Exam_Type as exam_type,
+                COALESCE(p.Program_Name, 'N/A') as program_name,
+                COALESCE(d.Department_Name, 'N/A') as college_name,
                 ans.total_score as total,
                 u.last_name,
                 u.first_name,
@@ -129,14 +156,102 @@ class ReportController extends Controller
                     'answer_sheet_id' => (int) $row->answer_sheet_id,
                     'student_full_name' => $fullName,
                     'exam_name' => $row->exam_name,
+                    'exam_type' => (string) ($row->exam_type ?? ''),
+                    'program_name' => (string) ($row->program_name ?? 'N/A'),
+                    'college_name' => (string) ($row->college_name ?? 'N/A'),
                     'math' => (int) $row->math,
                     'english' => (int) $row->english,
                     'science' => (int) $row->science,
                     'social_science' => (int) $row->social_science,
                     'total' => (int) ($row->total ?? 0),
+                    'score' => (int) ($row->total ?? 0),
+                    'items' => 100,
                 ];
             })
             ->values();
+        if ($this->hasScannedByColumn() && !$this->hasAnyRole($user->role, ['dept_head'])) {
+            $rows = DB::table('answer_sheets as ans')
+                ->join('users as u', 'u.id', '=', 'ans.user_id')
+                ->join('exams as e', 'e.id', '=', 'ans.exam_id')
+                ->leftJoin('programs as p', 'p.id', '=', 'e.program_id')
+                ->leftJoin('employees as emp', 'emp.id', '=', 'e.created_by')
+                ->leftJoin('departments as d', 'd.id', '=', 'emp.department_id')
+                ->leftJoin('exam_results as er', 'er.answer_sheet_id', '=', 'ans.id')
+                ->leftJoin('subjects as s', 's.id', '=', 'er.subject_id')
+                ->where('u.role', 'student')
+                ->where('ans.status', 'checked')
+                ->where('ans.scanned_by', $user->id)
+                ->whereIn('ans.exam_id', $ownedExamIds)
+                ->groupBy(
+                    'ans.id',
+                    'e.Exam_Title',
+                    'e.Exam_Type',
+                    'p.Program_Name',
+                    'd.Department_Name',
+                    'ans.total_score',
+                    'u.last_name',
+                    'u.first_name',
+                    'u.middle_initial',
+                    'u.extension_name'
+                )
+                ->selectRaw("
+                    ans.id as answer_sheet_id,
+                    e.Exam_Title as exam_name,
+                    e.Exam_Type as exam_type,
+                    COALESCE(p.Program_Name, 'N/A') as program_name,
+                    COALESCE(d.Department_Name, 'N/A') as college_name,
+                    ans.total_score as total,
+                    u.last_name,
+                    u.first_name,
+                    u.middle_initial,
+                    u.extension_name,
+                    COALESCE(MAX(CASE WHEN LOWER(s.Subject_Name) LIKE '%math%' THEN er.raw_score END), 0) as math,
+                    COALESCE(MAX(CASE WHEN LOWER(s.Subject_Name) LIKE '%english%' THEN er.raw_score END), 0) as english,
+                    COALESCE(MAX(CASE
+                        WHEN LOWER(s.Subject_Name) LIKE '%science%'
+                         AND LOWER(s.Subject_Name) NOT LIKE '%social science%'
+                         AND LOWER(s.Subject_Name) NOT LIKE '%social%'
+                        THEN er.raw_score
+                    END), 0) as science,
+                    COALESCE(MAX(CASE WHEN LOWER(s.Subject_Name) LIKE '%social science%' OR LOWER(s.Subject_Name) LIKE '%social%' THEN er.raw_score END), 0) as social_science
+                ")
+                ->orderBy('u.last_name')
+                ->orderBy('u.first_name')
+                ->get()
+                ->map(function ($row) {
+                    $nameParts = [
+                        trim((string) $row->last_name),
+                        trim((string) $row->first_name),
+                    ];
+
+                    if (!empty($row->middle_initial)) {
+                        $nameParts[] = trim((string) $row->middle_initial);
+                    }
+
+                    if (!empty($row->extension_name)) {
+                        $nameParts[] = trim((string) $row->extension_name);
+                    }
+
+                    $fullName = implode(', ', $nameParts);
+
+                    return [
+                        'answer_sheet_id' => (int) $row->answer_sheet_id,
+                        'student_full_name' => $fullName,
+                        'exam_name' => $row->exam_name,
+                        'exam_type' => (string) ($row->exam_type ?? ''),
+                        'program_name' => (string) ($row->program_name ?? 'N/A'),
+                        'college_name' => (string) ($row->college_name ?? 'N/A'),
+                        'math' => (int) $row->math,
+                        'english' => (int) $row->english,
+                        'science' => (int) $row->science,
+                        'social_science' => (int) $row->social_science,
+                        'total' => (int) ($row->total ?? 0),
+                        'score' => (int) ($row->total ?? 0),
+                        'items' => 100,
+                    ];
+                })
+                ->values();
+        }
 
         return response()->json([
             'success' => true,
@@ -211,18 +326,26 @@ class ReportController extends Controller
     public function entranceExamineeResultDetail(Request $request, int $answerSheetId)
     {
         $user = Auth::user();
-        if (!$user || $user->role !== 'entrance_examiner') {
+        if (!$user || !$this->hasAnyRole($user->role, ['entrance_examiner', 'dept_head', 'instructor'])) {
             return response()->json([
                 'success' => false,
-                'message' => 'Only entrance examiners can access this report detail.',
+                'message' => 'Only entrance examiners, college deans, and instructors can access this report detail.',
             ], 403);
         }
 
-        $sheet = AnswerSheet::query()
+        $ownedExamIds = $this->ownedExamIdsForUser((int) $user->id, $user);
+
+        $sheetQuery = AnswerSheet::query()
             ->with(['exam', 'user'])
             ->where('id', $answerSheetId)
             ->where('status', 'checked')
-            ->first();
+            ->whereIn('exam_id', $ownedExamIds);
+
+        if ($this->hasScannedByColumn() && !$this->hasAnyRole($user->role, ['dept_head'])) {
+            $sheetQuery->where('scanned_by', $user->id);
+        }
+
+        $sheet = $sheetQuery->first();
 
         if (!$sheet) {
             return response()->json([
@@ -366,5 +489,79 @@ class ReportController extends Controller
     {
         $value = strtolower(trim((string) $examType));
         return in_array($value, self::ENTRANCE_TYPE_ALIASES, true);
+    }
+
+    private function hasAnyRole(?string $roles, array $allowedRoles): bool
+    {
+        if (!$roles) {
+            return false;
+        }
+
+        $roleList = array_map('trim', explode(',', $roles));
+        foreach ($allowedRoles as $role) {
+            if (in_array($role, $roleList, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function ownedExamIdsForUser(int $userId, ?User $user = null): array
+    {
+        if ($userId <= 0) {
+            return [];
+        }
+
+        if ($user && $this->hasAnyRole($user->role, ['dept_head'])) {
+            $departmentId = (int) DB::table('employees')
+                ->where('user_id', $userId)
+                ->value('department_id');
+
+            if ($departmentId <= 0) {
+                return [];
+            }
+
+            return DB::table('exams as e')
+                ->leftJoin('employees as emp', 'emp.id', '=', 'e.created_by')
+                ->leftJoin('programs as p', 'p.id', '=', 'e.program_id')
+                ->where(function ($query) use ($departmentId) {
+                    $query->where('p.department_id', $departmentId)
+                        ->orWhere('emp.department_id', $departmentId);
+                })
+                ->distinct()
+                ->pluck('e.id')
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all();
+        }
+
+        $employeeId = DB::table('employees')
+            ->where('user_id', $userId)
+            ->value('id');
+
+        return DB::table('exams')
+            ->where(function ($query) use ($employeeId, $userId) {
+                if ($employeeId) {
+                    $query->where('created_by', $employeeId)
+                        ->orWhere('created_by', $userId);
+                    return;
+                }
+
+                $query->where('created_by', $userId);
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+    }
+
+    private function hasScannedByColumn(): bool
+    {
+        try {
+            return Schema::hasColumn('answer_sheets', 'scanned_by');
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 }

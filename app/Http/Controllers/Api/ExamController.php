@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\Exam;
+use App\Models\Program;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -15,6 +16,58 @@ class ExamController extends Controller
     private function currentEmployeeId(): ?int
     {
         return Employee::where('user_id', Auth::id())->value('id');
+    }
+
+    private function hasRole(?string $roles, string $role): bool
+    {
+        if (!$roles) {
+            return false;
+        }
+
+        $roleList = array_map('trim', explode(',', $roles));
+        return in_array($role, $roleList, true);
+    }
+
+    private function isDeptHead(): bool
+    {
+        $roles = Auth::user()?->role;
+        return $this->hasRole($roles, 'dept_head') && !$this->hasRole($roles, 'admin');
+    }
+
+    private function currentDepartmentId(): int
+    {
+        return (int) (Auth::user()?->employee?->department_id ?? 0);
+    }
+
+    private function assertProgramForDeptHead(?int $programId): void
+    {
+        if (!$this->isDeptHead()) {
+            return;
+        }
+
+        $departmentId = $this->currentDepartmentId();
+        if ($departmentId <= 0) {
+            throw ValidationException::withMessages([
+                'program_id' => 'College dean does not have an assigned department.',
+            ]);
+        }
+
+        if (!$programId) {
+            throw ValidationException::withMessages([
+                'program_id' => 'Program is required when creating an exam as college dean.',
+            ]);
+        }
+
+        $belongsToDept = Program::query()
+            ->where('id', $programId)
+            ->where('department_id', $departmentId)
+            ->exists();
+
+        if (!$belongsToDept) {
+            throw ValidationException::withMessages([
+                'program_id' => 'Selected program is not under your college.',
+            ]);
+        }
     }
 
     private function ownedExamsQuery()
@@ -53,7 +106,7 @@ class ExamController extends Controller
      */
     public function index()
     {
-        return Exam::with(['creator', 'examSubjects.subject'])
+        return Exam::with(['creator', 'examSubjects.subject', 'program'])
             ->whereIn('id', $this->ownedExamsQuery()->select('id'))
             ->orderBy('created_at', 'desc')
             ->get();
@@ -67,12 +120,14 @@ class ExamController extends Controller
         $validated = $request->validate([
             'Exam_Title' => 'required|string|max:255',
             'Exam_Type'  => 'required|string|max:100',
+            'program_id' => 'nullable|integer|exists:programs,id',
             'exam_subjects' => 'nullable|array|min:1',
             'exam_subjects.*.subject_id' => 'required|distinct|exists:subjects,id',
             'exam_subjects.*.Starting_Number' => 'required|integer|min:1',
             'exam_subjects.*.Ending_Number' => 'required|integer|min:1',
         ]);
         $this->validateSubjectRanges($validated['exam_subjects'] ?? []);
+        $this->assertProgramForDeptHead(isset($validated['program_id']) ? (int) $validated['program_id'] : null);
 
         $employeeId = $this->currentEmployeeId();
         if (!$employeeId) {
@@ -85,6 +140,7 @@ class ExamController extends Controller
             $exam = Exam::create([
                 'Exam_Title' => $validated['Exam_Title'],
                 'Exam_Type'  => $validated['Exam_Type'],
+                'program_id' => isset($validated['program_id']) ? (int) $validated['program_id'] : null,
                 'created_by' => $employeeId,
             ]);
 
@@ -107,7 +163,7 @@ class ExamController extends Controller
             return $exam;
         });
 
-        return response()->json($exam->load(['creator', 'examSubjects.subject']), 201);
+        return response()->json($exam->load(['creator', 'examSubjects.subject', 'program']), 201);
     }
 
     /**
@@ -120,17 +176,20 @@ class ExamController extends Controller
         $validated = $request->validate([
             'Exam_Title' => 'required|string|max:255',
             'Exam_Type'  => 'required|string|max:100',
+            'program_id' => 'nullable|integer|exists:programs,id',
             'exam_subjects' => 'nullable|array|min:1',
             'exam_subjects.*.subject_id' => 'required|distinct|exists:subjects,id',
             'exam_subjects.*.Starting_Number' => 'required|integer|min:1',
             'exam_subjects.*.Ending_Number' => 'required|integer|min:1',
         ]);
         $this->validateSubjectRanges($validated['exam_subjects'] ?? []);
+        $this->assertProgramForDeptHead(isset($validated['program_id']) ? (int) $validated['program_id'] : null);
 
         DB::transaction(function () use ($exam, $validated) {
             $exam->update([
                 'Exam_Title' => $validated['Exam_Title'],
                 'Exam_Type' => $validated['Exam_Type'],
+                'program_id' => isset($validated['program_id']) ? (int) $validated['program_id'] : null,
             ]);
 
             if (array_key_exists('exam_subjects', $validated)) {
@@ -154,7 +213,7 @@ class ExamController extends Controller
             }
         });
 
-        return response()->json($exam->fresh()->load(['creator', 'examSubjects.subject']));
+        return response()->json($exam->fresh()->load(['creator', 'examSubjects.subject', 'program']));
     }
 
     /**

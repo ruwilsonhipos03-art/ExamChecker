@@ -38,7 +38,7 @@
 
         <div class="col-md-2">
           <label class="form-label fw-semibold">Download</label>
-          <input class="form-control" value="Word (.doc)" disabled />
+          <input class="form-control" value="PDF" disabled />
         </div>
       </div>
 
@@ -49,8 +49,8 @@
           </button>
         </div>
         <div class="col-md-3">
-          <button class="btn btn-success w-100" :disabled="loading || !filteredRows.length" @click="downloadPrintableFile">
-            <i class="bi bi-download me-1"></i>Download Word
+          <button class="btn btn-success w-100" :disabled="loading || !filteredRows.length" @click="downloadPrintablePdf">
+            <i class="bi bi-download me-1"></i>Download PDF
           </button>
         </div>
       </div>
@@ -64,20 +64,17 @@
               <th style="width: 72px">No.</th>
               <th>Student</th>
               <th>Exam</th>
-              <th class="text-end">Math</th>
-              <th class="text-end">English</th>
-              <th class="text-end">Science</th>
-              <th class="text-end">Social Science</th>
-              <th class="text-end">Total</th>
+              <th class="text-end">Score</th>
+              <th class="text-end">Items</th>
               <th>Result</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="9" class="text-center py-4 text-muted">Loading reports...</td>
+              <td colspan="6" class="text-center py-4 text-muted">Loading reports...</td>
             </tr>
             <tr v-else-if="filteredRows.length === 0">
-              <td colspan="9" class="text-center py-4 text-muted">No records found.</td>
+              <td colspan="6" class="text-center py-4 text-muted">No records found.</td>
             </tr>
             <tr
               v-else
@@ -89,11 +86,8 @@
               <td>{{ index + 1 }}</td>
               <td class="fw-semibold">{{ row.student_full_name }}</td>
               <td>{{ row.exam_name }}</td>
-              <td class="text-end">{{ row.math }}</td>
-              <td class="text-end">{{ row.english }}</td>
-              <td class="text-end">{{ row.science }}</td>
-              <td class="text-end">{{ row.social_science }}</td>
-              <td class="text-end fw-bold">{{ row.total }}</td>
+              <td class="text-end fw-bold">{{ row.score ?? row.total }}</td>
+              <td class="text-end">{{ row.items ?? 100 }}</td>
               <td>
                 <span class="badge" :class="row.total >= 75 ? 'text-bg-success' : 'text-bg-danger'">
                   {{ row.total >= 75 ? 'Passed' : 'Failed' }}
@@ -231,11 +225,10 @@ const closeStudentAnswers = () => {
   detailItems.value = [];
 };
 
-const downloadPrintableFile = () => {
+const downloadPrintablePdf = () => {
   if (!filteredRows.value.length) return;
 
-  const now = new Date();
-  const generatedAt = now.toLocaleString();
+  const reportTitle = 'Entrance Examiner Reports';
 
   const tableRows = filteredRows.value
     .map((row, index) => {
@@ -244,12 +237,9 @@ const downloadPrintableFile = () => {
         <td>${index + 1}</td>
         <td>${escapeHtml(row.student_full_name || '')}</td>
         <td>${escapeHtml(row.exam_name || '')}</td>
-        <td>${Number(row.math || 0)}</td>
-        <td>${Number(row.english || 0)}</td>
-        <td>${Number(row.science || 0)}</td>
-        <td>${Number(row.social_science || 0)}</td>
-        <td>${Number(row.total || 0)}</td>
-        <td>${result}</td>
+        <td>${Number(row.score ?? row.total ?? 0)}</td>
+        <td>${Number(row.items ?? 100)}</td>
+        <td>${escapeHtml(result)}</td>
       </tr>`;
     })
     .join('');
@@ -258,36 +248,26 @@ const downloadPrintableFile = () => {
     <html>
       <head>
         <meta charset="UTF-8" />
-        <title>Entrance Examiner Reports</title>
+        <title>${escapeHtml(reportTitle)}</title>
         <style>
           body { font-family: Arial, sans-serif; padding: 28px 36px; }
           h2 { text-align: center; margin: 8px 0 22px; font-size: 40px; font-weight: 700; }
-          .meta { margin-bottom: 14px; font-size: 15px; color: #222; line-height: 1.45; }
           table { border-collapse: collapse; width: 100%; font-size: 18px; }
           th, td { border: 1px solid #aeb9c7; padding: 8px 10px; text-align: center; }
           th { background: #dde3eb; font-weight: 700; }
-          td:nth-child(2), td:nth-child(3) { text-align: left; }
+          td:nth-child(2) { text-align: left; }
         </style>
       </head>
       <body>
-        <h2>Entrance Examiner Reports</h2>
-        <div class="meta">
-          Generated: ${escapeHtml(generatedAt)}<br/>
-          Exam Filter: ${escapeHtml(filters.value.examTitle || 'All')}<br/>
-          Result Filter: ${escapeHtml(filters.value.result || 'All')}<br/>
-          Sort: ${escapeHtml(readableSort(filters.value.sort))}
-        </div>
+        <h2>${escapeHtml(reportTitle)}</h2>
         <table>
           <thead>
             <tr>
               <th>No.</th>
               <th>Student</th>
               <th>Exam</th>
-              <th>Math</th>
-              <th>English</th>
-              <th>Science</th>
-              <th>Social Science</th>
-              <th>Total</th>
+              <th>Score</th>
+              <th>Items</th>
               <th>Result</th>
             </tr>
           </thead>
@@ -297,29 +277,15 @@ const downloadPrintableFile = () => {
     </html>
   `;
 
-  const blob = new Blob([html], {
-    type: 'application/msword;charset=utf-8',
-  });
-  const fileName = `entrance_reports_${now.toISOString().slice(0, 10)}.doc`;
+  const printWindow = window.open('', '_blank', 'width=1024,height=768');
+  if (!printWindow) return;
 
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = fileName;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-};
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
 
-const readableSort = (value) => {
-  const labels = {
-    student_asc: 'Student A-Z',
-    student_desc: 'Student Z-A',
-    total_desc: 'Total High-Low',
-    total_asc: 'Total Low-High',
-  };
-  return labels[value] || labels.student_asc;
+  printWindow.focus();
+  printWindow.print();
 };
 
 const escapeHtml = (value) => {

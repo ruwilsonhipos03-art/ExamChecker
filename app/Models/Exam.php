@@ -9,6 +9,7 @@ class Exam extends Model
     protected $fillable = [
         'Exam_Title',
         'Exam_Type',
+        'program_id',
         'created_by'
     ];
 
@@ -30,5 +31,10 @@ class Exam extends Model
     public function examSubjects()
     {
         return $this->hasMany(ExamSubject::class);
+    }
+
+    public function program()
+    {
+        return $this->belongsTo(Program::class);
     }
 }

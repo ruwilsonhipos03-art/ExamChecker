@@ -30,9 +30,16 @@
               <div>
                 <h5 class="fw-bold mb-1">{{ sheet.exam?.Exam_Title || 'Untitled Exam' }}</h5>
                 <p class="text-muted small mb-0">{{ sheet.exam?.Exam_Type || 'Exam' }}</p>
+                <p v-if="isScreeningExam(sheet)" class="small fw-semibold text-success mb-0 mt-1">
+                  {{ screeningProgramName(sheet) }}
+                </p>
               </div>
             </div>
 
+            <div v-if="screeningMeta(sheet)" class="meta-row">
+              <span class="meta-label">Program</span>
+              <span class="meta-value">{{ screeningProgramName(sheet) || '-' }}</span>
+            </div>
             <div class="meta-row">
               <span class="meta-label">Exam Status</span>
               <span class="meta-value">{{ studentStatus(sheet.status) }}</span>
@@ -53,6 +60,7 @@ import { onMounted, ref } from 'vue';
 import axios from 'axios';
 
 const exams = ref([]);
+const selectedPrograms = ref([]);
 const isLoading = ref(true);
 const errorMessage = ref('');
 
@@ -61,10 +69,30 @@ const loadExams = async () => {
   errorMessage.value = '';
 
   try {
-    const { data } = await axios.get('/api/answer-sheets');
-    exams.value = Array.isArray(data) ? data : [];
+    const [{ data: sheetsData }, { data: recommendationData }] = await Promise.all([
+      axios.get('/api/answer-sheets'),
+      axios.get('/api/student/program-recommendations').catch(() => ({ data: null })),
+    ]);
+
+    exams.value = Array.isArray(sheetsData) ? sheetsData : [];
+
+    const payload = recommendationData?.data || {};
+    const programs = Array.isArray(payload.programs) ? payload.programs : [];
+    const selectedIds = Array.isArray(payload.selected_program_ids) ? payload.selected_program_ids.map((id) => Number(id)) : [];
+    const programById = new Map(programs.map((item) => [Number(item.program_id), item]));
+    selectedPrograms.value = selectedIds
+      .map((id, index) => {
+        const row = programById.get(id);
+        if (!row) return null;
+        return {
+          rank: index + 1,
+          programName: String(row.program_name || ''),
+        };
+      })
+      .filter(Boolean);
   } catch (error) {
     exams.value = [];
+    selectedPrograms.value = [];
     errorMessage.value = error?.response?.data?.message || 'Failed to load exams.';
   } finally {
     isLoading.value = false;
@@ -100,6 +128,43 @@ const formatDate = (value) => {
     hour: '2-digit',
     minute: '2-digit',
   });
+};
+
+const isScreeningExam = (sheet) => {
+  const type = String(sheet?.exam?.Exam_Type || '').trim().toLowerCase();
+  return type === 'screening' || type === 'screening exam';
+};
+
+const screeningMeta = (sheet) => {
+  if (!isScreeningExam(sheet)) return null;
+
+  const fromExamProgram = String(sheet?.exam?.program?.Program_Name || '').trim();
+  if (fromExamProgram) {
+    return {
+      rank: null,
+      programName: fromExamProgram,
+    };
+  }
+
+  const examTitle = String(sheet?.exam?.Exam_Title || '').trim().toLowerCase();
+  if (!examTitle) return null;
+
+  const matched = selectedPrograms.value.find((item) => {
+    const programName = String(item.programName || '').trim().toLowerCase();
+    return programName && examTitle.includes(programName);
+  });
+
+  return matched || null;
+};
+
+const screeningProgramName = (sheet) => {
+  if (!isScreeningExam(sheet)) return '';
+
+  const meta = screeningMeta(sheet);
+  const fromSelection = String(meta?.programName || '').trim();
+  if (fromSelection) return fromSelection;
+
+  return 'Screening Exam';
 };
 
 onMounted(loadExams);

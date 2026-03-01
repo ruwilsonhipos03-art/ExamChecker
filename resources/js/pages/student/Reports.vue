@@ -33,15 +33,15 @@
               </span>
             </div>
 
-            <div class="meta-row"><span class="meta-label">Math</span><span class="meta-value">{{ item.math }}</span></div>
-            <div class="meta-row"><span class="meta-label">English</span><span class="meta-value">{{ item.english }}</span></div>
-            <div class="meta-row"><span class="meta-label">Science</span><span class="meta-value">{{ item.science }}</span></div>
-            <div class="meta-row"><span class="meta-label">Social Science</span><span class="meta-value">{{ item.social_science }}</span></div>
+            <div v-if="showSubjectRows(item)" class="meta-row"><span class="meta-label">Math</span><span class="meta-value">{{ item.math }}</span></div>
+            <div v-if="showSubjectRows(item)" class="meta-row"><span class="meta-label">English</span><span class="meta-value">{{ item.english }}</span></div>
+            <div v-if="showSubjectRows(item)" class="meta-row"><span class="meta-label">Science</span><span class="meta-value">{{ item.science }}</span></div>
+            <div v-if="showSubjectRows(item)" class="meta-row"><span class="meta-label">Social Science</span><span class="meta-value">{{ item.social_science }}</span></div>
             <div class="meta-row"><span class="meta-label fw-semibold">Total</span><span class="meta-value fw-bold">{{ item.total }}</span></div>
             <div class="meta-row"><span class="meta-label">Checked At</span><span class="meta-value">{{ formatDateTime(item.checked_at) }}</span></div>
 
             <button
-              v-if="item.can_recommend_program"
+              v-if="item.can_recommend_program && isEntranceExam(item)"
               class="btn btn-success btn-sm w-100 mt-3 fw-semibold"
               @click="goToRecommendation(item)"
             >
@@ -91,6 +91,16 @@ const formatDateTime = (value) => {
     hour: '2-digit',
     minute: '2-digit',
   });
+};
+
+const showSubjectRows = (item) => {
+  const type = String(item?.exam_type || '').trim().toLowerCase();
+  return type === 'entrance' || type === 'entrance exam';
+};
+
+const isEntranceExam = (item) => {
+  const type = String(item?.exam_type || '').trim().toLowerCase();
+  return type === 'entrance' || type === 'entrance exam';
 };
 
 const goToRecommendation = (item) => {

@@ -33,6 +33,7 @@
                                 <th class="ps-4 py-3 text-secondary small fw-bold">NO.</th>
                                 <th class="py-3 text-secondary small fw-bold">EXAM TITLE</th>
                                 <th class="py-3 text-secondary small fw-bold">CATEGORY</th>
+                                <th class="py-3 text-secondary small fw-bold">PROGRAM</th>
                                 <th class="py-3 text-secondary small fw-bold">EXAMINER</th>
                                 <th class="pe-4 py-3 text-end text-secondary small fw-bold">ACTIONS</th>
                             </tr>
@@ -61,6 +62,9 @@
                                         </span>
                                     </td>
                                     <td class="text-muted small">
+                                        {{ exam.program?.Program_Name || 'N/A' }}
+                                    </td>
+                                    <td class="text-muted small">
                                         <template v-if="exam.creator">
                                             {{ exam.creator.name || `${exam.creator.first_name || ''}
                                             ${exam.creator.last_name || ''}` }}
@@ -81,7 +85,7 @@
                                     </td>
                                 </tr>
                                 <tr v-if="filteredExams.length === 0">
-                                    <td colspan="5" class="text-center py-5 text-muted">No exams recorded yet.</td>
+                                    <td colspan="6" class="text-center py-5 text-muted">No exams recorded yet.</td>
                                 </tr>
                             </template>
                         </tbody>
@@ -102,6 +106,15 @@
                             <div class="mb-3">
                                 <label class="form-label small fw-bold text-secondary">EXAM TITLE</label>
                                 <input v-model="form.Exam_Title" type="text" class="form-control border-2" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-secondary">PROGRAM</label>
+                                <select v-model="form.program_id" class="form-select border-2" required>
+                                    <option value="" disabled>Select program</option>
+                                    <option v-for="program in programs" :key="program.id" :value="String(program.id)">
+                                        {{ program.Program_Name }}
+                                    </option>
+                                </select>
                             </div>
 
                         </div>
@@ -133,13 +146,15 @@ let modalInstance = null;
 const isLoading = ref(false);
 const isSaving = ref(false);
 const deletingId = ref(null);
+const programs = ref([]);
 const EXAM_TYPE_ALIASES = ['term', 'term exam', 'departmental', 'normal', 'normal exam'];
 
-const form = reactive({ Exam_Title: '', Exam_Type: 'Term' });
+const form = reactive({ Exam_Title: '', Exam_Type: 'Term', program_id: '' });
 
 const resetForm = () => {
     form.Exam_Title = '';
     form.Exam_Type = 'Term';
+    form.program_id = '';
 };
 
 const filteredExams = computed(() => {
@@ -166,12 +181,27 @@ const fetchExams = async () => {
     }
 };
 
+const fetchPrograms = async () => {
+    try {
+        const response = await axios.get('/api/programs');
+        programs.value = Array.isArray(response.data?.data) ? response.data.data : [];
+    } catch (error) {
+        try {
+            const fallback = await axios.get('/api/admin/programs');
+            programs.value = Array.isArray(fallback.data?.data) ? fallback.data.data : [];
+        } catch (fallbackError) {
+            programs.value = [];
+        }
+    }
+};
+
 const openModal = (exam = null) => {
     resetForm();
     editMode.value = !!exam;
     currentId.value = exam?.id || null;
     form.Exam_Title = exam?.Exam_Title || '';
     form.Exam_Type = exam?.Exam_Type || 'Term';
+    form.program_id = exam?.program_id ? String(exam.program_id) : '';
     modalInstance.show();
 };
 
@@ -181,6 +211,7 @@ const saveExam = async () => {
         const payload = {
             Exam_Title: form.Exam_Title,
             Exam_Type: form.Exam_Type,
+            program_id: form.program_id ? Number(form.program_id) : null,
         };
         if (editMode.value) {
             await axios.put(`/api/exams/${currentId.value}`, payload);
@@ -217,7 +248,7 @@ const deleteExam = async (id) => {
 };
 
 onMounted(() => {
-    fetchExams();
+    Promise.all([fetchExams(), fetchPrograms()]);
     modalInstance = new Modal(modalRef.value);
 });
 </script>

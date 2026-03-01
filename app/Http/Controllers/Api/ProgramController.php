@@ -12,15 +12,31 @@ class ProgramController extends Controller
     public function index()
     {
         $user = Auth::user();
-        if (!$this->hasRole($user?->role, 'admin') && !$this->hasRole($user?->role, 'dept_head')) {
+        $canViewPrograms = $this->hasRole($user?->role, 'admin')
+            || $this->hasRole($user?->role, 'dept_head')
+            || $this->hasRole($user?->role, 'entrance_examiner');
+
+        if (!$canViewPrograms) {
             return response()->json([
-                'message' => 'Only admins and college deans can view the program list.',
+                'message' => 'Only admins, college deans, and entrance examiners can view the program list.',
             ], 403);
         }
 
+        $query = Program::with('department')->latest();
+
+        if ($this->hasRole($user?->role, 'dept_head') && !$this->hasRole($user?->role, 'admin')) {
+            $departmentId = (int) ($user?->employee?->department_id ?? 0);
+            if ($departmentId <= 0) {
+                return response()->json([
+                    'message' => 'College dean does not have an assigned department.',
+                ], 422);
+            }
+
+            $query->where('department_id', $departmentId);
+        }
+
         return response()->json([
-            // Eager load the department relationship
-            'data' => Program::with('department')->latest()->get()
+            'data' => $query->get(),
         ]);
     }
 
