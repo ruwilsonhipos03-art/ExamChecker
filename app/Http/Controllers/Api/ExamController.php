@@ -16,6 +16,9 @@ use Illuminate\Validation\ValidationException;
 
 class ExamController extends Controller
 {
+    private const SCREENING_TYPE_ALIASES = ['entrance', 'entrance exam', 'screening', 'screening exam'];
+    private const TERM_TYPE_ALIASES = ['term', 'term exam', 'departmental', 'normal', 'normal exam'];
+
     private function currentEmployeeId(): ?int
     {
         return Employee::where('user_id', Auth::id())->value('id');
@@ -89,13 +92,52 @@ class ExamController extends Controller
 
         return Exam::query()->where(function ($query) use ($userId, $employeeId) {
             if ($employeeId) {
-                // Keep legacy records (created_by was user_id in old code) visible/editable.
+                // Keep legacy records (created_by was user_id in old code) visible/editable,
+                // but only when created_by does not reference an existing employee row.
                 $query->where('created_by', $employeeId)
-                    ->orWhere('created_by', $userId);
+                    ->orWhere(function ($legacy) use ($userId) {
+                        $legacy->where('created_by', $userId)
+                            ->whereDoesntHave('creator');
+                    });
                 return;
             }
 
-            $query->where('created_by', $userId);
+            $query->where('created_by', $userId)
+                ->whereDoesntHave('creator');
+        });
+    }
+
+    private function examTypeAliasesForScope(?string $scope): array
+    {
+        $normalized = strtolower(trim((string) $scope));
+
+        if (in_array($normalized, ['screening', 'entrance'], true)) {
+            return self::SCREENING_TYPE_ALIASES;
+        }
+
+        if (in_array($normalized, ['term', 'normal'], true)) {
+            return self::TERM_TYPE_ALIASES;
+        }
+
+        return [];
+    }
+
+    private function applyExamTypeScope($query, ?string $scope): void
+    {
+        $aliases = $this->examTypeAliasesForScope($scope);
+        if (empty($aliases)) {
+            return;
+        }
+
+        $query->where(function ($types) use ($aliases) {
+            foreach ($aliases as $index => $alias) {
+                if ($index === 0) {
+                    $types->whereRaw('LOWER(TRIM(Exam_Type)) = ?', [$alias]);
+                    continue;
+                }
+
+                $types->orWhereRaw('LOWER(TRIM(Exam_Type)) = ?', [$alias]);
+            }
         });
     }
 
@@ -153,12 +195,17 @@ class ExamController extends Controller
     /**
      * Display only exams created by the currently logged-in user.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $exams = Exam::with(['creator.user', 'examSubjects.subject', 'program'])
+        $query = Exam::with(['creator.user', 'examSubjects.subject', 'program'])
             ->whereIn('id', $this->ownedExamsQuery()->select('id'))
-            ->orderBy('created_at', 'desc')
-            ->get();
+            ->orderBy('created_at', 'desc');
+
+        if ($this->isCollegeDean()) {
+            $this->applyExamTypeScope($query, $request->query('scope'));
+        }
+
+        $exams = $query->get();
 
         return $this->addExaminerFirstName($exams);
     }

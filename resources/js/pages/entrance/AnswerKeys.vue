@@ -71,8 +71,8 @@
         </div>
 
         <div class="modal fade" id="configModal" tabindex="-1" ref="modalRef" data-bs-backdrop="static">
-            <div class="modal-dialog modal-fullscreen">
-                <div class="modal-content border-0">
+            <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable config-modal-dialog">
+                <div class="modal-content border-0 shadow-lg">
                     <div class="modal-header bg-dark text-white border-0 py-3 px-4">
                         <div class="d-flex align-items-center">
                             <div class="bg-emerald p-2 rounded-3 me-3 d-none d-sm-block">
@@ -84,7 +84,7 @@
                     </div>
 
                     <div class="modal-body p-0 d-flex flex-column overflow-hidden bg-light">
-                        <div class="bg-white p-3 p-md-4 overflow-auto custom-scrollbar" style="max-height: 100%;">
+                        <div class="bg-white p-3 p-md-4 overflow-auto custom-scrollbar config-modal-body">
                             <div class="sticky-top bg-white pb-3 mb-2 shadow-bottom-fade">
                                 <div class="row g-3 align-items-center">
                                     <div class="col-md-5">
@@ -163,15 +163,15 @@
                                 </div>
 
                                 <div class="col-12 col-lg-8">
-                                    <div class="row g-2 g-md-3 mt-1">
-                                        <div v-for="n in 100" :key="n" class="col-4 col-sm-3 col-md-2">
-                                            <div class="answer-box transition-all" :class="getAnswerBoxClass(n)">
-                                                <div class="d-flex justify-content-between px-2 pt-1">
-                                                    <span class="fw-bold x-small text-muted">#{{ n }}</span>
+                                    <div class="answer-grid mt-3">
+                                        <div v-for="n in 100" :key="n" class="answer-grid-item">
+                                            <div class="answer-box transition-all compact-box" :class="getAnswerBoxClass(n)">
+                                                <div class="d-flex justify-content-between px-2 pt-1 compact-label-wrap">
+                                                    <span class="fw-bold x-small text-muted compact-label">#{{ n }}</span>
                                                 </div>
-                                                <div class="p-2">
+                                                <div class="p-1 compact-select-wrap">
                                                     <select v-model="form.answers[n]"
-                                                        class="form-select form-select-sm border-0 shadow-sm text-center fw-bold"
+                                                        class="form-select form-select-sm border-0 shadow-sm text-center fw-bold compact-select"
                                                         :class="getAnswerSelectClass(n)" @focus="focusedItem = n"
                                                         @change="markAnswerTouched(n)" :ref="'ans' + n">
                                                         <option value="">-</option>
@@ -635,10 +635,49 @@ onMounted(() => {
     font-size: 0.8rem;
 }
 
+.config-modal-dialog {
+    max-width: 1080px;
+}
+
+.config-modal-body {
+    max-height: min(72vh, 840px);
+}
+
+.answer-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.6rem;
+}
+
+.answer-grid-item {
+    min-width: 0;
+}
+
 .answer-box {
     border-radius: 12px;
     border: 1px solid #edf2f7;
     background: #fff;
+}
+
+.compact-box {
+    border-radius: 10px;
+}
+
+.compact-label-wrap {
+    min-height: 20px;
+}
+
+.compact-label {
+    font-size: 0.7rem;
+}
+
+.compact-select-wrap {
+    padding-top: 0;
+}
+
+.compact-select {
+    min-height: 34px;
+    font-size: 0.85rem;
 }
 
 .default-block {
@@ -707,5 +746,27 @@ onMounted(() => {
 
 .clickable-row {
     cursor: pointer;
+}
+
+@media (max-width: 991.98px) {
+    .answer-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 767.98px) {
+    .config-modal-dialog {
+        margin: 0.75rem;
+    }
+
+    .answer-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 575.98px) {
+    .answer-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 </style>
