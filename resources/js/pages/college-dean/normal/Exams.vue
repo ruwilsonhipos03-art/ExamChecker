@@ -173,7 +173,7 @@ const examinerName = (exam) => {
 const fetchExams = async () => {
     isLoading.value = true;
     try {
-        const examsRes = await axios.get('/api/exams');
+        const examsRes = await axios.get('/api/exams', { params: { scope: 'term' } });
         exams.value = Array.isArray(examsRes.data) ? examsRes.data : [];
     } catch (e) {
         exams.value = [];
