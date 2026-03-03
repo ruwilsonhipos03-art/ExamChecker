@@ -174,10 +174,7 @@ class OmrScanController extends Controller
     {
         $scriptPath = base_path('python/CheckExam.py');
         $workingDir = base_path('python');
-        $commands = [
-            ['python', $scriptPath, $imagePath],
-            ['py', '-3', $scriptPath, $imagePath],
-        ];
+        $commands = $this->buildOmrCommands($scriptPath, $imagePath);
         $attemptErrors = [];
 
         foreach ($commands as $command) {
@@ -249,6 +246,33 @@ class OmrScanController extends Controller
                 ? 'OMR processing failed: ' . implode(' || ', $attemptErrors)
                 : 'OMR processing failed. Please verify Python dependencies are installed.',
         ];
+    }
+
+    private function buildOmrCommands(string $scriptPath, string $imagePath): array
+    {
+        $commands = [];
+        $customBinary = trim((string) env('OMR_PYTHON_BIN', ''));
+        if ($customBinary !== '') {
+            $commands[] = [$customBinary, $scriptPath, $imagePath];
+        }
+
+        if (PHP_OS_FAMILY === 'Windows') {
+            $commands[] = ['py', '-3', $scriptPath, $imagePath];
+            $commands[] = ['python', $scriptPath, $imagePath];
+        } else {
+            $commands[] = ['python3', $scriptPath, $imagePath];
+            $commands[] = ['python', $scriptPath, $imagePath];
+        }
+
+        $unique = [];
+        foreach ($commands as $command) {
+            $key = implode("\0", $command);
+            if (!isset($unique[$key])) {
+                $unique[$key] = $command;
+            }
+        }
+
+        return array_values($unique);
     }
 
     private function normalizeAnswers(array $answers): array
