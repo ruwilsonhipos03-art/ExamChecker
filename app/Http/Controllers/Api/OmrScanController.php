@@ -174,14 +174,16 @@ class OmrScanController extends Controller
     {
         $scriptPath = base_path('python/CheckExam.py');
         $workingDir = base_path('python');
-        $commands = [
-            ['python', $scriptPath, $imagePath],
-            ['py', '-3', $scriptPath, $imagePath],
-        ];
+        $commands = $this->buildOmrCommands($scriptPath, $imagePath);
         $attemptErrors = [];
 
         foreach ($commands as $command) {
-            $process = new Process($command, $workingDir);
+            $process = new Process($command, $workingDir, [
+                'OPENBLAS_NUM_THREADS' => (string) env('OMR_OPENBLAS_THREADS', '1'),
+                'OMP_NUM_THREADS' => (string) env('OMR_OMP_THREADS', '1'),
+                'MKL_NUM_THREADS' => (string) env('OMR_MKL_THREADS', '1'),
+                'NUMEXPR_NUM_THREADS' => (string) env('OMR_NUMEXPR_THREADS', '1'),
+            ]);
             $process->setTimeout(180);
 
             try {
@@ -249,6 +251,33 @@ class OmrScanController extends Controller
                 ? 'OMR processing failed: ' . implode(' || ', $attemptErrors)
                 : 'OMR processing failed. Please verify Python dependencies are installed.',
         ];
+    }
+
+    private function buildOmrCommands(string $scriptPath, string $imagePath): array
+    {
+        $commands = [];
+        $customBinary = trim((string) env('OMR_PYTHON_BIN', ''));
+        if ($customBinary !== '') {
+            $commands[] = [$customBinary, $scriptPath, $imagePath];
+        }
+
+        if (PHP_OS_FAMILY === 'Windows') {
+            $commands[] = ['py', '-3', $scriptPath, $imagePath];
+            $commands[] = ['python', $scriptPath, $imagePath];
+        } else {
+            $commands[] = ['python3', $scriptPath, $imagePath];
+            $commands[] = ['python', $scriptPath, $imagePath];
+        }
+
+        $unique = [];
+        foreach ($commands as $command) {
+            $key = implode("\0", $command);
+            if (!isset($unique[$key])) {
+                $unique[$key] = $command;
+            }
+        }
+
+        return array_values($unique);
     }
 
     private function normalizeAnswers(array $answers): array

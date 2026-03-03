@@ -4,15 +4,22 @@ import sys
 import os
 import json
 import traceback
-from pyzbar.pyzbar import decode
 
 
-# ---------------- QR FALLBACK ----------------
+# ---------------- QR DETECTOR ----------------
 def decode_qr_opencv(img):
     detector = cv2.QRCodeDetector()
     data, bbox, _ = detector.detectAndDecode(img)
-    if data:
+    if data and data.strip():
         return data.strip()
+
+    # Fallback for images that contain multiple codes or weaker detections.
+    ok, decoded_infos, points, _ = detector.detectAndDecodeMulti(img)
+    if ok and decoded_infos:
+        for value in decoded_infos:
+            if value and value.strip():
+                return value.strip()
+
     return None
 
 
@@ -39,11 +46,7 @@ def detect_bubble_grid(img, filename):
             int(0.02 * w):int(0.35 * w)
         ]
 
-        codes = decode(qr_crop)
-        if codes:
-            qr_data = codes[0].data.decode("utf-8").strip()
-        else:
-            qr_data = decode_qr_opencv(qr_crop)
+        qr_data = decode_qr_opencv(qr_crop)
 
         # ---------------- FIND GRID ----------------
         contours, _ = cv2.findContours(
@@ -297,4 +300,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
