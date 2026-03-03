@@ -178,7 +178,12 @@ class OmrScanController extends Controller
         $attemptErrors = [];
 
         foreach ($commands as $command) {
-            $process = new Process($command, $workingDir);
+            $process = new Process($command, $workingDir, [
+                'OPENBLAS_NUM_THREADS' => (string) env('OMR_OPENBLAS_THREADS', '1'),
+                'OMP_NUM_THREADS' => (string) env('OMR_OMP_THREADS', '1'),
+                'MKL_NUM_THREADS' => (string) env('OMR_MKL_THREADS', '1'),
+                'NUMEXPR_NUM_THREADS' => (string) env('OMR_NUMEXPR_THREADS', '1'),
+            ]);
             $process->setTimeout(180);
 
             try {
