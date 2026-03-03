@@ -197,7 +197,7 @@ class OmrScanController extends Controller
 
             if (!$process->isSuccessful()) {
                 $errorDetail = trim($process->getErrorOutput());
-                if ($process->isTimedOut()) {
+                if (method_exists($process, 'isTimedOut') && $process->isTimedOut()) {
                     $errorDetail = $errorDetail !== '' ? $errorDetail : 'Process timed out while scanning the image.';
                 }
 
