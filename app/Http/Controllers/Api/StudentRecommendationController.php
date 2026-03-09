@@ -9,6 +9,7 @@ use App\Models\Recommendation;
 use App\Models\Student;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class StudentRecommendationController extends Controller
 {
@@ -97,6 +98,7 @@ class StudentRecommendationController extends Controller
                     'program_id' => (int) $requirement->program_id,
                     'program_name' => (string) ($requirement->program?->Program_Name ?? ''),
                     'College_Name' => (string) ($requirement->program?->college?->College_Name ?? ''),
+                    'college_id' => (int) (($requirement->program?->college_id ?? null) ?? ($requirement->program?->department_id ?? 0)),
                     'minimum_total_score' => $minimumScore,
                     'student_total_score' => $totalScore,
                     'is_qualified' => $isQualified,
@@ -446,7 +448,13 @@ class StudentRecommendationController extends Controller
 
         $programs = \App\Models\Program::query()
             ->whereIn('id', $selectedProgramIds)
-            ->get(['id', 'Program_Name'])
+            ->select(['id', 'Program_Name'])
+            ->selectRaw(
+                ($this->programOrgUnitColumn() !== null)
+                    ? "{$this->programOrgUnitColumn()} as college_id"
+                    : "0 as college_id"
+            )
+            ->get()
             ->keyBy('id');
 
         $statuses = [];
@@ -457,6 +465,7 @@ class StudentRecommendationController extends Controller
                 ->map(fn ($programId) => [
                     'program_id' => (int) $programId,
                     'program_name' => trim((string) ($programs->get($programId)?->Program_Name ?? '')),
+                    'college_id' => (int) ($programs->get($programId)?->college_id ?? 0),
                 ])
                 ->values()
                 ->all()
@@ -617,25 +626,57 @@ class StudentRecommendationController extends Controller
 
     private function screeningAttemptsByPrograms(int $userId, array $programs): array
     {
+        $deptProgramCounts = collect($programs)
+            ->groupBy(fn (array $program) => (int) ($program['college_id'] ?? 0))
+            ->map(fn ($rows) => count($rows))
+            ->all();
+
+        $employeeOrgUnitColumn = $this->employeeOrgUnitColumn();
+        $attemptRows = DB::table('answer_sheets as ans')
+            ->join('exams as e', 'e.id', '=', 'ans.exam_id')
+            ->leftJoin('employees as emp', 'emp.id', '=', 'e.created_by')
+            ->where('ans.user_id', $userId)
+            ->whereIn('ans.status', ['scanned', 'checked'])
+            ->whereIn(DB::raw('LOWER(e.Exam_Type)'), self::SCREENING_TYPE_ALIASES)
+            ->orderByDesc('ans.updated_at')
+            ->select('ans.status', 'ans.total_score', 'ans.updated_at', 'e.Exam_Title')
+            ->selectRaw(
+                $employeeOrgUnitColumn !== null
+                    ? "emp.{$employeeOrgUnitColumn} as college_id"
+                    : "0 as college_id"
+            )
+            ->get()
+            ->map(fn ($row) => [
+                'status' => strtolower(trim((string) ($row->status ?? ''))),
+                'total_score' => isset($row->total_score) ? (int) $row->total_score : null,
+                'exam_title' => (string) ($row->Exam_Title ?? ''),
+                'college_id' => (int) ($row->college_id ?? 0),
+            ])
+            ->values()
+            ->all();
+
         $results = [];
 
         foreach ($programs as $program) {
             $programId = (int) ($program['program_id'] ?? 0);
             $programName = trim((string) ($program['program_name'] ?? ''));
+            $programDepartmentId = (int) ($program['college_id'] ?? 0);
+            $allowDepartmentFallback = $programDepartmentId > 0
+                && (($deptProgramCounts[$programDepartmentId] ?? 0) === 1);
 
             if ($programId <= 0 || $programName === '') {
                 continue;
             }
 
-            $latest = DB::table('answer_sheets as ans')
-                ->join('exams as e', 'e.id', '=', 'ans.exam_id')
-                ->where('ans.user_id', $userId)
-                ->whereIn('ans.status', ['scanned', 'checked'])
-                ->whereIn(DB::raw('LOWER(e.Exam_Type)'), self::SCREENING_TYPE_ALIASES)
-                ->whereRaw('LOWER(e.Exam_Title) LIKE ?', ['%' . strtolower($programName) . '%'])
-                ->orderByDesc('ans.updated_at')
-                ->select('ans.status', 'ans.total_score', 'ans.updated_at', 'e.Exam_Title')
-                ->first();
+            $latest = collect($attemptRows)->first(function (array $attempt) use ($programName, $programDepartmentId, $allowDepartmentFallback) {
+                return $this->examMatchesProgram(
+                    (string) ($attempt['exam_title'] ?? ''),
+                    $programName,
+                    (int) ($attempt['college_id'] ?? 0),
+                    $programDepartmentId,
+                    $allowDepartmentFallback
+                );
+            });
 
             if (!$latest) {
                 $results[$programId] = [
@@ -647,26 +688,117 @@ class StudentRecommendationController extends Controller
                 continue;
             }
 
-            $sheetStatus = strtolower(trim((string) ($latest->status ?? '')));
+            $sheetStatus = strtolower(trim((string) ($latest['status'] ?? '')));
             if ($sheetStatus !== 'checked') {
                 $results[$programId] = [
                     'attempted' => true,
                     'status' => 'in_progress',
-                    'exam_title' => (string) ($latest->Exam_Title ?? ''),
+                    'exam_title' => (string) ($latest['exam_title'] ?? ''),
                     'total_score' => null,
                 ];
                 continue;
             }
 
-            $score = (int) ($latest->total_score ?? 0);
+            $score = (int) ($latest['total_score'] ?? 0);
             $results[$programId] = [
                 'attempted' => true,
                 'status' => $score >= self::PASSING_SCORE ? 'passed' : 'failed',
-                'exam_title' => (string) ($latest->Exam_Title ?? ''),
+                'exam_title' => (string) ($latest['exam_title'] ?? ''),
                 'total_score' => $score,
             ];
         }
 
         return $results;
+    }
+
+    private function employeeOrgUnitColumn(): ?string
+    {
+        if (Schema::hasColumn('employees', 'college_id')) {
+            return 'college_id';
+        }
+
+        if (Schema::hasColumn('employees', 'department_id')) {
+            return 'department_id';
+        }
+
+        return null;
+    }
+
+    private function programOrgUnitColumn(): ?string
+    {
+        if (Schema::hasColumn('programs', 'college_id')) {
+            return 'college_id';
+        }
+
+        if (Schema::hasColumn('programs', 'department_id')) {
+            return 'department_id';
+        }
+
+        return null;
+    }
+
+    private function examMatchesProgram(
+        string $examTitle,
+        string $programName,
+        int $examDepartmentId,
+        int $programDepartmentId,
+        bool $allowDepartmentFallback
+    ): bool {
+        if ($this->titleMatchesProgramName($examTitle, $programName)) {
+            return true;
+        }
+
+        if ($allowDepartmentFallback && $examDepartmentId > 0 && $programDepartmentId > 0) {
+            return $examDepartmentId === $programDepartmentId;
+        }
+
+        return false;
+    }
+
+    private function titleMatchesProgramName(string $examTitle, string $programName): bool
+    {
+        $normalizedTitle = $this->normalizeText($examTitle);
+        $normalizedProgram = $this->normalizeText($programName);
+
+        if ($normalizedTitle === '' || $normalizedProgram === '') {
+            return false;
+        }
+
+        if (str_contains($normalizedTitle, $normalizedProgram) || str_contains($normalizedProgram, $normalizedTitle)) {
+            return true;
+        }
+
+        $tokens = $this->significantTokens($normalizedProgram);
+        if (empty($tokens)) {
+            return false;
+        }
+
+        $matched = 0;
+        foreach ($tokens as $token) {
+            if (str_contains($normalizedTitle, $token)) {
+                $matched++;
+            }
+        }
+
+        $requiredMatches = count($tokens) >= 3 ? 2 : 1;
+        return $matched >= $requiredMatches;
+    }
+
+    private function normalizeText(string $value): string
+    {
+        $value = strtolower(trim($value));
+        $value = preg_replace('/[^a-z0-9]+/i', ' ', $value) ?? '';
+        $value = preg_replace('/\s+/', ' ', $value) ?? '';
+        return trim($value);
+    }
+
+    private function significantTokens(string $value): array
+    {
+        $stopWords = ['bs', 'ba', 'bsa', 'bsc', 'bachelor', 'in', 'of', 'major', 'program'];
+        $parts = array_filter(explode(' ', $value), function ($token) use ($stopWords) {
+            return strlen($token) >= 3 && !in_array($token, $stopWords, true);
+        });
+
+        return array_values(array_unique($parts));
     }
 }

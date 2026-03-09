@@ -11,6 +11,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
@@ -323,17 +324,23 @@ class AnswerSheetController extends Controller
 
     private function validateScreeningScanOrder(int $userId, ?Exam $exam): array
     {
+        $programOrgUnitColumn = $this->programOrgUnitColumn();
         $selectedPrograms = Recommendation::query()
             ->join('programs', 'programs.id', '=', 'recommendations.program_id')
             ->where('recommendations.user_id', $userId)
             ->where('recommendations.type', self::TYPE_STUDENT_CHOICE)
             ->orderBy('recommendations.rank')
-            ->get([
+            ->select([
                 'recommendations.program_id',
                 'recommendations.rank',
                 'programs.Program_Name as program_name',
-                'programs.college_id as college_id',
             ])
+            ->selectRaw(
+                $programOrgUnitColumn !== null
+                    ? "programs.{$programOrgUnitColumn} as college_id"
+                    : "0 as college_id"
+            )
+            ->get()
             ->map(function ($row) {
                 return [
                     'program_id' => (int) $row->program_id,
@@ -441,13 +448,19 @@ class AnswerSheetController extends Controller
 
     private function screeningStatusesByProgram(int $userId, array $programs): array
     {
+        $employeeOrgUnitColumn = $this->employeeOrgUnitColumn();
         $attempts = DB::table('answer_sheets as ans')
             ->join('exams as e', 'e.id', '=', 'ans.exam_id')
             ->leftJoin('employees as emp', 'emp.id', '=', 'e.created_by')
             ->where('ans.user_id', $userId)
             ->whereIn(DB::raw('LOWER(e.Exam_Type)'), self::SCREENING_TYPE_ALIASES)
             ->orderByDesc('ans.updated_at')
-            ->select('ans.status', 'ans.total_score', 'e.Exam_Title', 'emp.college_id')
+            ->select('ans.status', 'ans.total_score', 'e.Exam_Title')
+            ->selectRaw(
+                $employeeOrgUnitColumn !== null
+                    ? "emp.{$employeeOrgUnitColumn} as college_id"
+                    : "0 as college_id"
+            )
             ->get()
             ->map(fn ($row) => [
                 'status' => strtolower(trim((string) ($row->status ?? ''))),
@@ -609,5 +622,31 @@ class AnswerSheetController extends Controller
         });
 
         return array_values(array_unique($parts));
+    }
+
+    private function employeeOrgUnitColumn(): ?string
+    {
+        if (Schema::hasColumn('employees', 'college_id')) {
+            return 'college_id';
+        }
+
+        if (Schema::hasColumn('employees', 'department_id')) {
+            return 'department_id';
+        }
+
+        return null;
+    }
+
+    private function programOrgUnitColumn(): ?string
+    {
+        if (Schema::hasColumn('programs', 'college_id')) {
+            return 'college_id';
+        }
+
+        if (Schema::hasColumn('programs', 'department_id')) {
+            return 'department_id';
+        }
+
+        return null;
     }
 }
