@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 use App\Models\ExamSchedule;
 use App\Models\Exam;
+use App\Services\ActivityLogger;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -186,6 +187,21 @@ class AuthController extends Controller
 
                 // 5. Generate Access Token
                 $token = $user->createToken('auth_token')->plainTextToken;
+
+                ActivityLogger::log(
+                    (int) $user->id,
+                    'student',
+                    'student_registered',
+                    'user',
+                    (int) $user->id,
+                    'New student registered',
+                    trim($user->last_name . ', ' . $user->first_name) . ' completed student registration.',
+                    [
+                        'student_number' => (string) ($user->studentProfile?->Student_Number ?? ''),
+                        'email' => (string) $user->email,
+                        'username' => (string) $user->username,
+                    ]
+                );
 
                 return response()->json([
                     'status'   => 'success',

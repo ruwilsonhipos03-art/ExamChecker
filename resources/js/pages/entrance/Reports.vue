@@ -13,7 +13,7 @@
         </div>
 
         <div class="col-md-3">
-          <label class="form-label fw-semibold">Search Student</label>
+          <label class="form-label fw-semibold">Search Applicant</label>
           <input v-model.trim="filters.name" type="text" class="form-control" placeholder="Lastname, Firstname..." />
         </div>
 
@@ -29,8 +29,8 @@
         <div class="col-md-2">
           <label class="form-label fw-semibold">Arrange By</label>
           <select v-model="filters.sort" class="form-select">
-            <option value="student_asc">Student A-Z</option>
-            <option value="student_desc">Student Z-A</option>
+            <option value="student_asc">Applicant A-Z</option>
+            <option value="student_desc">Applicant Z-A</option>
             <option value="total_desc">Total High-Low</option>
             <option value="total_asc">Total Low-High</option>
           </select>
@@ -62,7 +62,7 @@
           <thead class="table-light">
             <tr>
               <th style="width: 72px">No.</th>
-              <th>Student</th>
+              <th>Applicant</th>
               <th>Exam</th>
               <th class="text-end">Score</th>
               <th class="text-end">Items</th>
@@ -103,7 +103,7 @@
       <div class="popup-card">
         <div class="d-flex justify-content-between align-items-start mb-3">
           <div>
-            <h5 class="fw-bold mb-1">Student Answer Check (1-100)</h5>
+            <h5 class="fw-bold mb-1">Applicant Answer Check (1-100)</h5>
             <div class="text-muted small">
               {{ selectedStudent?.student_full_name || '-' }} | {{ selectedStudent?.exam_name || '-' }}
             </div>
@@ -211,7 +211,7 @@ const openStudentAnswers = async (row) => {
       };
     });
   } catch (error) {
-    detailError.value = error?.response?.data?.message || 'Failed to load student answers.';
+    detailError.value = error?.response?.data?.message || 'Failed to load applicant answers.';
   } finally {
     detailLoading.value = false;
   }
@@ -264,7 +264,7 @@ const downloadPrintablePdf = () => {
           <thead>
             <tr>
               <th>No.</th>
-              <th>Student</th>
+              <th>Applicant</th>
               <th>Exam</th>
               <th>Score</th>
               <th>Items</th>

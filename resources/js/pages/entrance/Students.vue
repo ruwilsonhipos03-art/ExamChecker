@@ -1,7 +1,7 @@
 <template>
     <div>
-        <h2 class="fw-bold mb-1">Entrance Examiner Students Management</h2>
-        <p class="text-muted">Registered students who have not taken the screening exam yet.</p>
+        <h2 class="fw-bold mb-1">Entrance Examiner Applicants Management</h2>
+        <p class="text-muted">Registered applicants who have not taken the screening exam yet.</p>
 
         <div class="row g-4 mt-2 mb-4">
             <div class="col-md-3" v-for="(card, idx) in counterCards" :key="idx">
@@ -50,17 +50,17 @@
                     <thead class="table-light">
                         <tr>
                             <th style="width: 70px;">No.</th>
-                            <th>Student Fullname</th>
+                            <th>Applicant Fullname</th>
                             <th>Exam</th>
                             <th>Status</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-if="loading">
-                            <td colspan="4" class="text-center py-4 text-muted">Loading students...</td>
+                            <td colspan="4" class="text-center py-4 text-muted">Loading applicants...</td>
                         </tr>
                         <tr v-else-if="filteredStudents.length === 0">
-                            <td colspan="4" class="text-center py-4 text-muted">No students found.</td>
+                            <td colspan="4" class="text-center py-4 text-muted">No applicants found.</td>
                         </tr>
                         <tr v-else v-for="(student, index) in filteredStudents" :key="student.id">
                             <td>{{ index + 1 }}</td>
@@ -83,7 +83,7 @@ const loading = ref(false);
 const students = ref([]);
 const counters = ref({
     scheduled_students: 0,
-    examinees: 0,
+    pending_results: 0,
     passed_students: 0,
     total_students: 0,
 });
@@ -97,10 +97,10 @@ const filters = ref({
 
 const counterCards = computed(() => {
     return [
-        { label: 'Scheduled Students', value: Number(counters.value.scheduled_students || 0).toLocaleString() },
-        { label: 'Examinees', value: Number(counters.value.examinees || 0).toLocaleString() },
-        { label: 'Passed Students', value: Number(counters.value.passed_students || 0).toLocaleString() },
-        { label: 'Total Students', value: Number(counters.value.total_students || 0).toLocaleString() },
+        { label: 'Scheduled Applicants', value: Number(counters.value.scheduled_students || 0).toLocaleString() },
+        { label: 'Pending Results', value: Number(counters.value.pending_results || 0).toLocaleString() },
+        { label: 'Passed Applicants', value: Number(counters.value.passed_students || 0).toLocaleString() },
+        { label: 'Total Applicants', value: Number(counters.value.total_students || 0).toLocaleString() },
     ];
 });
 
@@ -143,7 +143,7 @@ const loadCounters = async () => {
     const { data } = await axios.get('/api/entrance/dashboard/stats');
     counters.value = {
         scheduled_students: Number(data?.scheduled_students || 0),
-        examinees: Number(data?.examinees || 0),
+        pending_results: Number(data?.pending_results || 0),
         passed_students: Number(data?.passed_students || 0),
         total_students: Number(data?.total_students || 0),
     };
@@ -162,7 +162,7 @@ const loadPageData = async () => {
         students.value = [];
         window.Swal?.fire({
             icon: 'error',
-            title: 'Failed to load students data',
+            title: 'Failed to load applicants data',
             text: 'Please refresh and try again.',
         });
     } finally {

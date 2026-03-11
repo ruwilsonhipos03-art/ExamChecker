@@ -16,7 +16,7 @@
         <h6 class="fw-bold">Add Assignment</h6>
         <div class="row g-2">
           <div class="col-md-5">
-            <label class="form-label small text-muted">Student</label>
+            <label class="form-label small text-muted">Students</label>
             <input
               v-model="studentPickerSearch"
               type="text"
@@ -24,12 +24,12 @@
               placeholder="Search student name..."
               :disabled="saving"
             >
-            <select class="form-select" v-model="form.student_user_id" :disabled="saving">
-              <option value="" disabled>Select student</option>
+            <select class="form-select" v-model="form.student_user_ids" :disabled="saving" multiple size="7">
               <option v-for="student in filteredStudentOptions" :key="student.id" :value="student.id">
                 {{ student.full_name }} - {{ student.program_name || '-' }}
               </option>
             </select>
+            <div class="small text-muted mt-1">Selected: {{ selectedStudentCount }}</div>
           </div>
           <div class="col-md-5">
             <label class="form-label small text-muted">Subject</label>
@@ -43,7 +43,7 @@
           <div class="col-md-2 d-flex align-items-end">
             <button class="btn btn-success w-100" @click="saveAssignment" :disabled="saving || !canSave">
               <span v-if="saving" class="spinner-border spinner-border-sm me-2"></span>
-              Assign
+              {{ assignButtonLabel }}
             </button>
           </div>
         </div>
@@ -109,7 +109,7 @@ const search = ref('');
 const studentPickerSearch = ref('');
 
 const form = reactive({
-  student_user_id: '',
+  student_user_ids: [],
   subject_id: '',
 });
 
@@ -117,7 +117,9 @@ const loadingAny = computed(() =>
   loadingStudents.value || loadingSubjects.value || loadingAssignments.value
 );
 
-const canSave = computed(() => Boolean(form.student_user_id && form.subject_id));
+const selectedStudentCount = computed(() => Array.isArray(form.student_user_ids) ? form.student_user_ids.length : 0);
+const canSave = computed(() => Boolean(selectedStudentCount.value > 0 && form.subject_id));
+const assignButtonLabel = computed(() => `Assign to ${selectedStudentCount.value || 0} Student${selectedStudentCount.value === 1 ? '' : 's'}`);
 
 const filteredStudentOptions = computed(() => {
   const q = studentPickerSearch.value.trim().toLowerCase();
@@ -186,13 +188,13 @@ const saveAssignment = async () => {
   saving.value = true;
   try {
     const payload = {
-      student_user_id: Number(form.student_user_id),
       subject_id: Number(form.subject_id),
+      student_user_ids: form.student_user_ids.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0),
     };
 
     const { data } = await axios.post('/api/college_dean/subject-assignments/students', payload);
     window.Toast?.fire({ icon: 'success', title: data?.message || 'Assignment saved' });
-    form.student_user_id = '';
+    form.student_user_ids = [];
     form.subject_id = '';
     await loadAssignments();
   } catch (error) {

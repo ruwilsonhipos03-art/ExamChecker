@@ -12,6 +12,7 @@ class SubjectStudentAssignment extends Model
     protected $fillable = [
         'subject_id',
         'student_user_id',
+        'instructor_user_id',
         'assigned_by_user_id',
     ];
 
@@ -29,5 +30,9 @@ class SubjectStudentAssignment extends Model
     {
         return $this->belongsTo(User::class, 'assigned_by_user_id');
     }
-}
 
+    public function instructor()
+    {
+        return $this->belongsTo(User::class, 'instructor_user_id');
+    }
+}

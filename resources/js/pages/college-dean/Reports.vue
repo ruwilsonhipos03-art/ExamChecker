@@ -4,8 +4,8 @@
             <div class="card-body p-4">
                 <div class="row align-items-center g-3">
                     <div class="col">
-                        <h4 class="fw-bold mb-1 text-dark">Activity Feed</h4>
-                        <p class="text-muted small mb-0">Track who did what across exams, assignments, and registration.</p>
+                        <h4 class="fw-bold mb-1 text-dark">Audit Activity</h4>
+                        <p class="text-muted small mb-0">Track instructor actions and screening activity relevant to your college.</p>
                     </div>
                     <div class="col-auto">
                         <button @click="loadActivities" class="btn btn-emerald fw-bold px-4" :disabled="isLoading">
@@ -139,7 +139,6 @@ import axios from 'axios';
 const isLoading = ref(false);
 const activities = ref([]);
 const allActionOptions = ref([
-    'student_registered',
     'screening_exam_taken',
     'exam_created',
     'exam_updated',
@@ -147,7 +146,7 @@ const allActionOptions = ref([
     'student_subject_assigned',
     'student_subject_unassigned',
 ]);
-const allRoleOptions = ref(['admin', 'college_dean', 'instructor', 'student']);
+const allRoleOptions = ref(['college_dean', 'instructor', 'student']);
 
 const meta = reactive({
     current_page: 1,
@@ -189,7 +188,6 @@ const prettyAction = (action) => {
 
 const actionIcon = (action) => {
     const map = {
-        student_registered: 'bi bi-person-plus-fill',
         screening_exam_taken: 'bi bi-person-check-fill',
         exam_created: 'bi bi-file-earmark-plus-fill',
         exam_updated: 'bi bi-pencil-square',
@@ -202,7 +200,7 @@ const actionIcon = (action) => {
 };
 
 const actionBadgeClass = (action) => {
-    if (String(action).includes('created') || String(action).includes('registered') || String(action).includes('assigned')) {
+    if (String(action).includes('created') || String(action).includes('registered') || String(action).includes('assigned') || String(action).includes('taken')) {
         return 'bg-success-subtle text-success border border-success-subtle';
     }
 
@@ -251,7 +249,7 @@ const loadActivities = async (page = 1) => {
         if (filters.date_from) params.date_from = filters.date_from;
         if (filters.date_to) params.date_to = filters.date_to;
 
-        const { data } = await axios.get('/api/admin/activities', { params });
+        const { data } = await axios.get('/api/college_dean/activities', { params });
         activities.value = Array.isArray(data?.data) ? data.data : [];
 
         const payloadMeta = data?.meta || {};

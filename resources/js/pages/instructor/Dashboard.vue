@@ -18,7 +18,7 @@
                     <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
                         <div class="action-text">
                             <h3 class="fw-bold mb-1">Ready to check exams?</h3>
-                            <p class="text-muted mb-0">Start the optical scanner to process new student answer sheets.
+                            <p class="text-muted mb-0">Upload answer sheet images to check and process results.
                             </p>
                         </div>
                         <button
@@ -26,8 +26,8 @@
                             :disabled="isScanning"
                             @click="openScanPicker"
                         >
-                            <i class="bi bi-qr-code-scan fs-2"></i>
-                            <span class="fs-4 fw-bold">{{ isScanning ? 'PROCESSING...' : 'START SCANNING' }}</span>
+                            <i class="bi bi-upload fs-2"></i>
+                            <span class="fs-4 fw-bold">{{ isScanning ? 'PROCESSING...' : 'UPLOAD ANSWER SHEET' }}</span>
                         </button>
                     </div>
                 </div>

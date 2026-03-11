@@ -45,6 +45,11 @@
                 <span v-if="!isCollapsed">Employees</span>
             </router-link>
 
+            <router-link to="/admin/students" class="nav-item">
+                <i class="bi bi-mortarboard-fill"></i>
+                <span v-if="!isCollapsed">Students</span>
+            </router-link>
+
             <router-link to="/admin/reports" class="nav-item">
                 <i class="bi bi-file-earmark-bar-graph-fill"></i>
                 <span v-if="!isCollapsed">Reports</span>

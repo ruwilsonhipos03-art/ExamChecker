@@ -18,39 +18,22 @@
                     <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
                         <div class="action-text">
                             <h3 class="fw-bold mb-1">Ready to check exams?</h3>
-                            <p class="text-muted mb-0">Start the optical scanner to process new student answer sheets.
+                            <p class="text-muted mb-0">Upload answer sheet images to check and process results.
                             </p>
                         </div>
-                        <button
-                            class="btn btn-scan d-flex align-items-center gap-3 px-5 py-3 rounded-3 shadow"
-                            :disabled="isScanning"
-                            @click="openScanPicker"
-                        >
-                            <i class="bi bi-qr-code-scan fs-2"></i>
-                            <span class="fs-4 fw-bold">{{ isScanning ? 'PROCESSING...' : 'START SCANNING' }}</span>
+                        <button class="btn btn-scan d-flex align-items-center gap-3 px-5 py-3 rounded-3 shadow"
+                            :disabled="isScanning" @click="openScanPicker">
+                            <i class="bi bi-upload fs-2"></i>
+                            <span class="fs-4 fw-bold">{{ isScanning ? 'PROCESSING...' : 'UPLOAD ANSWER SHEET' }}</span>
                         </button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <input
-            ref="singleInputRef"
-            type="file"
-            class="d-none"
-            accept="image/*"
-            @change="onSingleSelected"
-        />
-        <input
-            ref="folderInputRef"
-            type="file"
-            class="d-none"
-            accept="image/*"
-            multiple
-            webkitdirectory
-            directory
-            @change="onFolderSelected"
-        />
+        <input ref="singleInputRef" type="file" class="d-none" accept="image/*" @change="onSingleSelected" />
+        <input ref="folderInputRef" type="file" class="d-none" accept="image/*" multiple webkitdirectory directory
+            @change="onFolderSelected" />
 
         <div class="row g-4 mb-4">
             <div class="col-md-3" v-for="(stat, index) in stats" :key="index">
@@ -69,20 +52,25 @@
         <div class="card border-0 shadow-sm rounded-4 overflow-hidden bg-white">
             <div class="p-4 border-bottom d-flex justify-content-between align-items-center">
                 <h5 class="fw-bold mb-0 text-dark">Recent Activity</h5>
-                <a href="#" class="text-emerald text-decoration-none small fw-bold">View All</a>
+                <button class="btn btn-sm btn-link text-decoration-none fw-bold text-emerald" @click="goToReports">See All</button>
             </div>
+
             <div class="card-body p-0">
+                <div v-if="activities.length === 0" class="p-4 text-muted">No activity yet.</div>
+
                 <div v-for="a in activities" :key="a.id" class="p-4 border-bottom d-flex align-items-center gap-3">
                     <div class="p-2 rounded-3 bg-emerald-light text-emerald">
-                        <i :class="a.icon"></i>
+                        <i :class="actionIcon(a.action_type)"></i>
                     </div>
                     <div class="flex-grow-1">
                         <div class="fw-semibold text-dark">{{ a.title }}</div>
-                        <div class="small text-muted">{{ a.time }}</div>
+                        <div class="small text-muted">{{ a.description }}</div>
+                        <div class="small text-muted">{{ formatDateTime(a.created_at) }} | {{ prettyRole(a.actor_role) }}</div>
                     </div>
                 </div>
             </div>
         </div>
+
     </div>
 </template>
 
@@ -97,6 +85,7 @@ const isScanning = ref(false);
 const singleInputRef = ref(null);
 const folderInputRef = ref(null);
 const router = useRouter();
+const activities = ref([]);
 let statsRefreshTimer = null;
 
 const stats = ref([
@@ -106,10 +95,34 @@ const stats = ref([
     { label: 'Passing Rate', value: '0%', icon: 'bi-graph-up-arrow', colorClass: 'bg-warning-subtle text-warning' }
 ]);
 
-const activities = [
-    { id: 1, title: 'Entrance Exam - Batch 2024 generated', time: '2 hours ago', icon: 'bi-file-earmark-check' },
-    { id: 2, title: '45 new students enrolled', time: '5 hours ago', icon: 'bi-person-plus' }
-];
+const prettyRole = (role) => {
+    if (!role) return 'N/A';
+    return String(role).replaceAll('_', ' ').toUpperCase();
+};
+
+const actionIcon = (action) => {
+    const map = {
+        screening_exam_taken: 'bi bi-person-check-fill',
+        exam_created: 'bi bi-file-earmark-plus-fill',
+        exam_updated: 'bi bi-pencil-square',
+        exam_deleted: 'bi bi-trash-fill',
+        student_subject_assigned: 'bi bi-link-45deg',
+        student_subject_unassigned: 'bi bi-unlink',
+    };
+
+    return map[action] || 'bi bi-activity';
+};
+
+const formatDateTime = (value) => {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleString();
+};
+
+const goToReports = () => {
+    router.push('/college-dean/reports');
+};
 
 const loadStats = async () => {
     try {
@@ -120,6 +133,7 @@ const loadStats = async () => {
             { label: 'Subjects', value: Number(data.subjects || 0).toLocaleString(), icon: 'bi-book-fill', colorClass: 'bg-info-subtle text-info' },
             { label: 'Passing Rate', value: `${Number(data.passing_rate || 0).toFixed(2)}%`, icon: 'bi-graph-up-arrow', colorClass: 'bg-warning-subtle text-warning' }
         ];
+        activities.value = Array.isArray(data?.recent_activities) ? data.recent_activities : [];
     } catch (error) {
         Swal.fire({
             icon: 'error',

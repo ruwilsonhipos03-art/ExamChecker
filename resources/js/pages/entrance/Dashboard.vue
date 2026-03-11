@@ -3,7 +3,7 @@
         <div class="content-header mb-4 d-flex justify-content-between align-items-end">
             <div>
                 <h1 class="fw-bold text-dark">Welcome back, Entrance Examiner! 👋</h1>
-                <p class="text-muted mb-0">Manage your exams and students here.</p>
+                <p class="text-muted mb-0">Manage your exams and applicants here.</p>
             </div>
 
             <div class="text-end d-none d-md-block">
@@ -18,7 +18,7 @@
                     <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
                         <div class="action-text">
                             <h3 class="fw-bold mb-1">Ready to check exams?</h3>
-                            <p class="text-muted mb-0">Start the optical scanner to process new student answer sheets.
+                            <p class="text-muted mb-0">Upload answer sheet images to check and process results.
                             </p>
                         </div>
                         <button
@@ -26,8 +26,8 @@
                             :disabled="isScanning"
                             @click="openScanPicker"
                         >
-                            <i class="bi bi-qr-code-scan fs-2"></i>
-                            <span class="fs-4 fw-bold">{{ isScanning ? 'PROCESSING...' : 'START SCANNING' }}</span>
+                            <i class="bi bi-upload fs-2"></i>
+                            <span class="fs-4 fw-bold">{{ isScanning ? 'PROCESSING...' : 'UPLOAD ANSWER SHEET' }}</span>
                         </button>
                     </div>
                 </div>
@@ -99,25 +99,25 @@ const folderInputRef = ref(null);
 const router = useRouter();
 
 const stats = ref([
-    { label: 'Scheduled Students', value: '0', icon: 'bi-calendar-check-fill', colorClass: 'bg-warning-subtle text-warning' },
-    { label: 'Examinees', value: '0', icon: 'bi-people-fill', colorClass: 'bg-emerald-light text-emerald' },
-    { label: 'Passed Students', value: '0', icon: 'bi-check-circle-fill', colorClass: 'bg-emerald-light text-emerald' },
-    { label: 'Total Students', value: '0', icon: 'bi-person-badge-fill', colorClass: 'bg-info-subtle text-info' }
+    { label: 'Scheduled Applicants', value: '0', icon: 'bi-calendar-check-fill', colorClass: 'bg-warning-subtle text-warning' },
+    { label: 'Pending Results', value: '0', icon: 'bi-hourglass-split', colorClass: 'bg-emerald-light text-emerald' },
+    { label: 'Passed Applicants', value: '0', icon: 'bi-check-circle-fill', colorClass: 'bg-emerald-light text-emerald' },
+    { label: 'Total Applicants', value: '0', icon: 'bi-person-badge-fill', colorClass: 'bg-info-subtle text-info' }
 ]);
 
 const activities = [
     { id: 1, title: 'Entrance Exam - Batch 2024 generated', time: '2 hours ago', icon: 'bi-file-earmark-check' },
-    { id: 2, title: '45 new students enrolled', time: '5 hours ago', icon: 'bi-person-plus' }
+    { id: 2, title: '45 new applicants enrolled', time: '5 hours ago', icon: 'bi-person-plus' }
 ];
 
 const loadStats = async () => {
     try {
         const { data } = await axios.get('/api/entrance/dashboard/stats');
         stats.value = [
-            { label: 'Scheduled Students', value: Number(data.scheduled_students || 0).toLocaleString(), icon: 'bi-calendar-check-fill', colorClass: 'bg-warning-subtle text-warning' },
-            { label: 'Examinees', value: Number(data.examinees || 0).toLocaleString(), icon: 'bi-people-fill', colorClass: 'bg-emerald-light text-emerald' },
-            { label: 'Passed Students', value: Number(data.passed_students || 0).toLocaleString(), icon: 'bi-check-circle-fill', colorClass: 'bg-emerald-light text-emerald' },
-            { label: 'Total Students', value: Number(data.total_students || 0).toLocaleString(), icon: 'bi-person-badge-fill', colorClass: 'bg-info-subtle text-info' }
+            { label: 'Scheduled Applicants', value: Number(data.scheduled_students || 0).toLocaleString(), icon: 'bi-calendar-check-fill', colorClass: 'bg-warning-subtle text-warning' },
+            { label: 'Pending Results', value: Number(data.pending_results || 0).toLocaleString(), icon: 'bi-hourglass-split', colorClass: 'bg-emerald-light text-emerald' },
+            { label: 'Passed Applicants', value: Number(data.passed_students || 0).toLocaleString(), icon: 'bi-check-circle-fill', colorClass: 'bg-emerald-light text-emerald' },
+            { label: 'Total Applicants', value: Number(data.total_students || 0).toLocaleString(), icon: 'bi-person-badge-fill', colorClass: 'bg-info-subtle text-info' }
         ];
     } catch (error) {
         Swal.fire({

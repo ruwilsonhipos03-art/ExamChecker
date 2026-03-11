@@ -20,6 +20,11 @@
         <span v-if="!isCollapsed">Schedules</span>
       </router-link>
 
+      <router-link to="/student/subjects" class="nav-item">
+        <i class="bi bi-book-half"></i>
+        <span v-if="!isCollapsed">Subjects</span>
+      </router-link>
+
       <router-link to="/student/recommendations" class="nav-item">
         <i class="bi bi-mortarboard-fill"></i>
         <span v-if="!isCollapsed">Recommendations</span>

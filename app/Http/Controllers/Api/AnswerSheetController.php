@@ -7,6 +7,7 @@ use App\Models\AnswerSheet;
 use App\Models\Exam;
 use App\Models\Recommendation;
 use App\Models\User;
+use App\Services\ActivityLogger;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -246,7 +247,8 @@ class AnswerSheetController extends Controller
             ]);
         }
 
-        $sheet->loadMissing('exam.creator');
+        $sheet->loadMissing('exam.creator', 'exam.program');
+        $screeningAuditContext = null;
         if ($this->isScreeningExamType($sheet->exam?->Exam_Type)) {
             $screeningGuard = $this->validateScreeningScanOrder($userId, $sheet->exam);
             if (!($screeningGuard['allowed'] ?? false)) {
@@ -254,6 +256,13 @@ class AnswerSheetController extends Controller
                     'message' => $screeningGuard['message'] ?? 'You cannot take this screening exam yet.',
                 ], 422);
             }
+
+            $screeningAuditContext = [
+                'program_id' => isset($screeningGuard['program_id']) ? (int) $screeningGuard['program_id'] : null,
+                'program_name' => (string) ($screeningGuard['program_name'] ?? ''),
+                'program_rank' => isset($screeningGuard['program_rank']) ? (int) $screeningGuard['program_rank'] : null,
+                'program_college_id' => isset($screeningGuard['program_college_id']) ? (int) $screeningGuard['program_college_id'] : null,
+            ];
         }
 
         $updates = [
@@ -271,6 +280,44 @@ class AnswerSheetController extends Controller
         }
 
         $sheet->update($updates);
+
+        if ($screeningAuditContext !== null) {
+            $actor = Auth::user();
+            $studentName = trim(
+                (string) ($actor?->first_name ?? '') . ' ' . (string) ($actor?->last_name ?? '')
+            );
+            if ($studentName === '') {
+                $studentName = 'Student #' . (int) $userId;
+            }
+
+            $programId = $screeningAuditContext['program_id'] ?? ($sheet->exam?->program_id ? (int) $sheet->exam?->program_id : null);
+            $programName = trim((string) ($screeningAuditContext['program_name'] ?? ''));
+            if ($programName === '') {
+                $programName = (string) ($sheet->exam?->program?->Program_Name ?? '');
+            }
+
+            ActivityLogger::log(
+                $userId ? (int) $userId : null,
+                (string) ($actor?->role ?? ''),
+                'screening_exam_taken',
+                'program',
+                $programId,
+                'Student took screening exam',
+                $studentName . ' scanned answer sheet for screening exam "' . (string) ($sheet->exam?->Exam_Title ?? '') . '".',
+                [
+                    'student_user_id' => (int) $userId,
+                    'student_name' => $studentName,
+                    'exam_id' => (int) ($sheet->exam?->id ?? 0),
+                    'exam_title' => (string) ($sheet->exam?->Exam_Title ?? ''),
+                    'exam_type' => (string) ($sheet->exam?->Exam_Type ?? ''),
+                    'program_id' => $programId,
+                    'program_name' => $programName,
+                    'program_rank' => $screeningAuditContext['program_rank'] ?? null,
+                    'program_college_id' => $screeningAuditContext['program_college_id'] ?? null,
+                    'college_id' => $screeningAuditContext['program_college_id'] ?? null,
+                ]
+            );
+        }
 
         return response()->json([
             'message' => 'Answer sheet linked successfully.',
@@ -443,6 +490,10 @@ class AnswerSheetController extends Controller
         return [
             'allowed' => true,
             'message' => '',
+            'program_id' => (int) ($target['program_id'] ?? 0),
+            'program_name' => (string) ($target['program_name'] ?? ''),
+            'program_rank' => (int) ($target['rank'] ?? ($targetIndex + 1)),
+            'program_college_id' => (int) ($target['college_id'] ?? 0),
         ];
     }
 

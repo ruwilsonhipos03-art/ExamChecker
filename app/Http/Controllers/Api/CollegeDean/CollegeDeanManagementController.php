@@ -1,12 +1,13 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\Api\CollegeDean;
 
 use App\Http\Controllers\Controller;
 use App\Models\Subject;
 use App\Models\SubjectInstructorAssignment;
 use App\Models\SubjectStudentAssignment;
 use App\Models\User;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -184,37 +185,158 @@ class CollegeDeanManagementController extends Controller
 
         $validated = $request->validate([
             'subject_id' => ['required', 'integer', 'exists:subjects,id'],
+            'student_user_ids' => ['nullable', 'array', 'min:1'],
+            'student_user_ids.*' => ['integer', 'distinct'],
             'student_user_id' => [
-                'required',
+                'nullable',
                 'integer',
                 Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', 'student')),
             ],
         ]);
 
-        $studentIsInDepartment = DB::table('students as s')
-            ->join('programs as p', 'p.id', '=', 's.program_id')
-            ->where('s.user_id', (int) $validated['student_user_id'])
-            ->where('p.' . $programOrgUnitColumn, $departmentId)
-            ->exists();
+        $subjectId = (int) $validated['subject_id'];
+        $legacySingleInput = !isset($validated['student_user_ids']) && !empty($validated['student_user_id']);
+        $studentUserIds = collect($validated['student_user_ids'] ?? [])
+            ->push((int) ($validated['student_user_id'] ?? 0))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
 
-        if (!$studentIsInDepartment) {
+        if ($studentUserIds->isEmpty()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Student is not under your college programs.',
+                'message' => 'Please select at least one student.',
             ], 422);
         }
 
-        $assignment = SubjectStudentAssignment::query()->firstOrCreate([
-            'subject_id' => (int) $validated['subject_id'],
-            'student_user_id' => (int) $validated['student_user_id'],
-        ], [
-            'assigned_by_user_id' => (int) $deanUser->id,
-        ]);
+        $subjectName = (string) (DB::table('subjects')->where('id', $subjectId)->value('Subject_Name') ?? '');
+        $latestInstructorUserId = SubjectInstructorAssignment::query()
+            ->where('subject_id', $subjectId)
+            ->latest('id')
+            ->value('instructor_user_id');
+
+        $studentsById = User::query()
+            ->whereIn('id', $studentUserIds->all())
+            ->get(['id', 'first_name', 'middle_initial', 'last_name', 'extension_name', 'role'])
+            ->keyBy('id');
+
+        $validStudentIdsInCollege = DB::table('students as s')
+            ->join('programs as p', 'p.id', '=', 's.program_id')
+            ->join('users as u', 'u.id', '=', 's.user_id')
+            ->whereIn('s.user_id', $studentUserIds->all())
+            ->where('u.role', 'student')
+            ->where('p.' . $programOrgUnitColumn, $departmentId)
+            ->pluck('s.user_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        $validStudentIdLookup = array_fill_keys($validStudentIdsInCollege, true);
+
+        $results = [];
+        $createdCount = 0;
+        $existingCount = 0;
+        $invalidCount = 0;
+
+        foreach ($studentUserIds as $studentUserId) {
+            $studentUserId = (int) $studentUserId;
+            $student = $studentsById->get($studentUserId);
+            $studentName = $this->fullName($student);
+            if ($studentName === '') {
+                $studentName = 'Student #' . $studentUserId;
+            }
+
+            if (!isset($validStudentIdLookup[$studentUserId])) {
+                $invalidCount++;
+                $results[] = [
+                    'student_user_id' => $studentUserId,
+                    'student_name' => $studentName,
+                    'status' => 'invalid',
+                    'message' => 'Student is not under your college programs or is not a student account.',
+                ];
+                continue;
+            }
+
+            $assignment = SubjectStudentAssignment::query()->firstOrCreate([
+                'subject_id' => $subjectId,
+                'student_user_id' => $studentUserId,
+            ], [
+                'instructor_user_id' => $latestInstructorUserId ? (int) $latestInstructorUserId : null,
+                'assigned_by_user_id' => (int) $deanUser->id,
+            ]);
+
+            if (!$assignment->wasRecentlyCreated) {
+                if ((int) ($assignment->instructor_user_id ?? 0) !== (int) ($latestInstructorUserId ?? 0)) {
+                    $assignment->instructor_user_id = $latestInstructorUserId ? (int) $latestInstructorUserId : null;
+                    $assignment->save();
+                }
+
+                $existingCount++;
+                $results[] = [
+                    'student_user_id' => $studentUserId,
+                    'student_name' => $studentName,
+                    'status' => 'already_assigned',
+                    'message' => 'Assignment already exists.',
+                    'assignment_id' => (int) $assignment->id,
+                ];
+                continue;
+            }
+
+            $createdCount++;
+            $results[] = [
+                'student_user_id' => $studentUserId,
+                'student_name' => $studentName,
+                'status' => 'created',
+                'message' => 'Student assigned to subject.',
+                'assignment_id' => (int) $assignment->id,
+            ];
+
+            ActivityLogger::log(
+                (int) $deanUser->id,
+                (string) ($deanUser->role ?? ''),
+                'student_subject_assigned',
+                'subject_student_assignment',
+                (int) $assignment->id,
+                'Student assigned to subject',
+                'Assigned student "' . $studentName . '" to subject "' . $subjectName . '".',
+                [
+                    'subject_id' => $subjectId,
+                    'subject_name' => $subjectName,
+                    'student_user_id' => $studentUserId,
+                    'student_name' => $studentName,
+                ]
+            );
+        }
+
+        if ($legacySingleInput && $studentUserIds->count() === 1) {
+            $firstResult = $results[0] ?? null;
+            if (!$firstResult || ($firstResult['status'] ?? '') === 'invalid') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Student is not under your college programs.',
+                ], 422);
+            }
+
+            $isCreated = ($firstResult['status'] ?? '') === 'created';
+            return response()->json([
+                'success' => true,
+                'message' => $isCreated ? 'Student assigned to subject.' : 'Assignment already exists.',
+            ], $isCreated ? 201 : 200);
+        }
+
+        $total = $studentUserIds->count();
+        $message = "Processed {$total} student(s): {$createdCount} created, {$existingCount} already assigned, {$invalidCount} invalid.";
 
         return response()->json([
             'success' => true,
-            'message' => $assignment->wasRecentlyCreated ? 'Student assigned to subject.' : 'Assignment already exists.',
-        ], $assignment->wasRecentlyCreated ? 201 : 200);
+            'message' => $message,
+            'summary' => [
+                'total' => $total,
+                'created' => $createdCount,
+                'already_assigned' => $existingCount,
+                'invalid' => $invalidCount,
+            ],
+            'results' => $results,
+        ], 200);
     }
 
     public function destroyStudentAssignment(Request $request, int $id)
@@ -243,7 +365,28 @@ class CollegeDeanManagementController extends Controller
             ], 404);
         }
 
+        $assignment->load(['subject:id,Subject_Name', 'student:id,first_name,middle_initial,last_name,extension_name']);
+        $subjectName = (string) ($assignment->subject?->Subject_Name ?? '');
+        $studentName = $this->fullName($assignment->student);
+
         $assignment->delete();
+
+        $deanUser = $request->user();
+        ActivityLogger::log(
+            $deanUser ? (int) $deanUser->id : null,
+            (string) ($deanUser?->role ?? ''),
+            'student_subject_unassigned',
+            'subject_student_assignment',
+            (int) $id,
+            'Student removed from subject',
+            'Removed student "' . $studentName . '" from subject "' . $subjectName . '".',
+            [
+                'subject_id' => (int) ($assignment->subject_id ?? 0),
+                'subject_name' => $subjectName,
+                'student_user_id' => (int) ($assignment->student_user_id ?? 0),
+                'student_name' => $studentName,
+            ]
+        );
 
         return response()->json([
             'success' => true,
@@ -324,6 +467,19 @@ class CollegeDeanManagementController extends Controller
             'assigned_by_user_id' => (int) $deanUser->id,
         ]);
 
+        // Keep student-subject rows in sync with the latest instructor mapped to this subject.
+        $latestInstructorUserId = SubjectInstructorAssignment::query()
+            ->where('subject_id', (int) $validated['subject_id'])
+            ->latest('id')
+            ->value('instructor_user_id');
+
+        SubjectStudentAssignment::query()
+            ->where('subject_id', (int) $validated['subject_id'])
+            ->update([
+                'instructor_user_id' => $latestInstructorUserId ? (int) $latestInstructorUserId : null,
+                'updated_at' => now(),
+            ]);
+
         return response()->json([
             'success' => true,
             'message' => $assignment->wasRecentlyCreated ? 'Instructor assigned to subject.' : 'Assignment already exists.',
@@ -354,7 +510,21 @@ class CollegeDeanManagementController extends Controller
             ], 404);
         }
 
+        $subjectId = (int) $assignment->subject_id;
         $assignment->delete();
+
+        // Re-resolve current instructor for this subject after deletion.
+        $latestInstructorUserId = SubjectInstructorAssignment::query()
+            ->where('subject_id', $subjectId)
+            ->latest('id')
+            ->value('instructor_user_id');
+
+        SubjectStudentAssignment::query()
+            ->where('subject_id', $subjectId)
+            ->update([
+                'instructor_user_id' => $latestInstructorUserId ? (int) $latestInstructorUserId : null,
+                'updated_at' => now(),
+            ]);
 
         return response()->json([
             'success' => true,

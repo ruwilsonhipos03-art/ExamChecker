@@ -25,6 +25,11 @@
                 <span v-if="!isCollapsed">Instructor Subjects</span>
             </router-link>
 
+            <router-link to="/college-dean/reports" class="nav-item">
+                <i class="bi bi-activity"></i>
+                <span v-if="!isCollapsed">Audit</span>
+            </router-link>
+
             <div class="section-label" v-if="!isCollapsed">EXAMS</div>
 
             <div class="nav-group">
@@ -50,6 +55,9 @@
                     </router-link>
                     <router-link to="/college-dean/entrance/reports" class="sub-item">
                         <i class="bi bi-file-bar-graph-fill"></i> Reports
+                    </router-link>
+                    <router-link to="/college-dean/entrance/analysis" class="sub-item">
+                        <i class="bi bi-bar-chart-line-fill"></i> Analysis
                     </router-link>
                 </div>
             </div>
@@ -77,6 +85,9 @@
                     </router-link>
                     <router-link to="/college-dean/normal/reports" class="sub-item">
                         <i class="bi bi-file-bar-graph-fill"></i> Reports
+                    </router-link>
+                    <router-link to="/college-dean/normal/analysis" class="sub-item">
+                        <i class="bi bi-bar-chart-line-fill"></i> Analysis
                     </router-link>
                 </div>
             </div>

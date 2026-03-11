@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\AnswerKey;
 use App\Models\AnswerSheet;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -105,6 +107,228 @@ class ReportController extends Controller
         }
     }
 
+    public function adminStudents(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user || !$this->hasAnyRole($user->role, ['admin'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only administrators can access this report.',
+            ], 403);
+        }
+
+        $programOrgUnitColumn = $this->programOrgUnitColumn();
+        $orgUnitTable = $this->orgUnitTable();
+        $orgUnitNameColumn = $this->orgUnitNameColumn();
+
+        $latestSheets = DB::table('answer_sheets as ans')
+            ->selectRaw('ans.user_id, MAX(ans.id) as latest_answer_sheet_id')
+            ->whereIn('ans.status', ['checked', 'scanned'])
+            ->groupBy('ans.user_id');
+
+        $rows = DB::table('users as u')
+            ->join('students as st', 'st.user_id', '=', 'u.id')
+            ->leftJoin('programs as p', 'p.id', '=', 'st.program_id')
+            ->leftJoin($orgUnitTable . ' as d', 'd.id', '=', 'p.' . $programOrgUnitColumn)
+            ->leftJoinSub($latestSheets, 'latest_sheet', function ($join) {
+                $join->on('latest_sheet.user_id', '=', 'u.id');
+            })
+            ->leftJoin('answer_sheets as ans', 'ans.id', '=', 'latest_sheet.latest_answer_sheet_id')
+            ->leftJoin('exams as e', 'e.id', '=', 'ans.exam_id')
+            ->where('u.role', 'student')
+            ->orderBy('u.last_name')
+            ->orderBy('u.first_name')
+            ->selectRaw("
+                u.id,
+                u.first_name,
+                u.middle_initial,
+                u.last_name,
+                u.extension_name,
+                u.username,
+                u.email,
+                st.Student_Number as student_number,
+                p.id as program_id,
+                p.Program_Name as program_name,
+                COALESCE(d.{$orgUnitNameColumn}, 'N/A') as college_name,
+                e.id as exam_id,
+                e.Exam_Title as exam_name,
+                e.Exam_Type as exam_type,
+                ans.status as exam_status,
+                ans.total_score as exam_total_score
+            ")
+            ->get()
+            ->map(function ($row) {
+                return [
+                    'id' => (int) $row->id,
+                    'student_number' => (string) ($row->student_number ?? ''),
+                    'full_name' => $this->formatNameParts(
+                        (string) ($row->last_name ?? ''),
+                        (string) ($row->first_name ?? ''),
+                        (string) ($row->middle_initial ?? ''),
+                        (string) ($row->extension_name ?? '')
+                    ),
+                    'username' => (string) ($row->username ?? ''),
+                    'email' => (string) ($row->email ?? ''),
+                    'program_id' => (int) ($row->program_id ?? 0),
+                    'program_name' => (string) ($row->program_name ?? 'N/A'),
+                    'college_name' => (string) ($row->college_name ?? 'N/A'),
+                    'exam_id' => $row->exam_id ? (int) $row->exam_id : null,
+                    'exam_name' => (string) ($row->exam_name ?? 'N/A'),
+                    'exam_type' => (string) ($row->exam_type ?? ''),
+                    'exam_status' => (string) ($row->exam_status ?? 'not_taken'),
+                    'exam_total_score' => $row->exam_total_score !== null ? (int) $row->exam_total_score : null,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $rows,
+        ]);
+    }
+
+    public function adminActivities(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user || !$this->hasAnyRole($user->role, ['admin'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only administrators can access this activity feed.',
+            ], 403);
+        }
+
+        $query = ActivityLog::query()->with('actor:id,first_name,last_name,role');
+
+        $search = trim((string) $request->query('search', ''));
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', '%' . $search . '%')
+                    ->orWhere('description', 'like', '%' . $search . '%')
+                    ->orWhereHas('actor', function ($actorQuery) use ($search) {
+                        $actorQuery->where('first_name', 'like', '%' . $search . '%')
+                            ->orWhere('last_name', 'like', '%' . $search . '%');
+                    });
+            });
+        }
+
+        $actionType = trim((string) $request->query('action_type', ''));
+        if ($actionType !== '') {
+            $query->where('action_type', $actionType);
+        }
+
+        $actorRole = trim((string) $request->query('actor_role', ''));
+        if ($actorRole !== '') {
+            $query->where('actor_role', $actorRole);
+        }
+
+        $dateFrom = trim((string) $request->query('date_from', ''));
+        if ($dateFrom !== '') {
+            $query->whereDate('created_at', '>=', $dateFrom);
+        }
+
+        $dateTo = trim((string) $request->query('date_to', ''));
+        if ($dateTo !== '') {
+            $query->whereDate('created_at', '<=', $dateTo);
+        }
+
+        $perPage = (int) $request->query('per_page', 20);
+        if ($perPage <= 0) {
+            $perPage = 20;
+        }
+
+        $paginator = $query->orderByDesc('created_at')->paginate($perPage);
+        $items = collect($paginator->items())->map(fn (ActivityLog $log) => $this->formatActivity($log))->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $items,
+            'meta' => [
+                'current_page' => (int) $paginator->currentPage(),
+                'last_page' => (int) $paginator->lastPage(),
+                'per_page' => (int) $paginator->perPage(),
+                'total' => (int) $paginator->total(),
+            ],
+        ]);
+    }
+
+    public function collegeDeanActivities(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user || !$this->hasAnyRole($user->role, ['college_dean'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only college deans can access this activity feed.',
+            ], 403);
+        }
+
+        $collegeId = $this->actorCollegeId((int) $user->id);
+        if ($collegeId <= 0) {
+            return response()->json([
+                'success' => true,
+                'data' => [],
+                'meta' => [
+                    'current_page' => 1,
+                    'last_page' => 1,
+                    'per_page' => (int) max(1, (int) $request->query('per_page', 20)),
+                    'total' => 0,
+                ],
+            ]);
+        }
+
+        $query = $this->collegeDeanActivitiesBaseQuery($collegeId)->with('actor:id,first_name,last_name,role');
+
+        $search = trim((string) $request->query('search', ''));
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', '%' . $search . '%')
+                    ->orWhere('description', 'like', '%' . $search . '%')
+                    ->orWhereHas('actor', function ($actorQuery) use ($search) {
+                        $actorQuery->where('first_name', 'like', '%' . $search . '%')
+                            ->orWhere('last_name', 'like', '%' . $search . '%');
+                    });
+            });
+        }
+
+        $actionType = trim((string) $request->query('action_type', ''));
+        if ($actionType !== '') {
+            $query->where('action_type', $actionType);
+        }
+
+        $actorRole = trim((string) $request->query('actor_role', ''));
+        if ($actorRole !== '') {
+            $query->where('actor_role', $actorRole);
+        }
+
+        $dateFrom = trim((string) $request->query('date_from', ''));
+        if ($dateFrom !== '') {
+            $query->whereDate('created_at', '>=', $dateFrom);
+        }
+
+        $dateTo = trim((string) $request->query('date_to', ''));
+        if ($dateTo !== '') {
+            $query->whereDate('created_at', '<=', $dateTo);
+        }
+
+        $perPage = (int) $request->query('per_page', 20);
+        if ($perPage <= 0) {
+            $perPage = 20;
+        }
+
+        $paginator = $query->orderByDesc('created_at')->paginate($perPage);
+        $items = collect($paginator->items())->map(fn (ActivityLog $log) => $this->formatActivity($log))->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $items,
+            'meta' => [
+                'current_page' => (int) $paginator->currentPage(),
+                'last_page' => (int) $paginator->lastPage(),
+                'per_page' => (int) $paginator->perPage(),
+                'total' => (int) $paginator->total(),
+            ],
+        ]);
+    }
+
     /**
      * Helper to format user name.
      */
@@ -118,6 +342,113 @@ class ReportController extends Controller
             $name .= " " . $user->extension_name;
         }
         return $name;
+    }
+
+    private function formatNameParts(string $lastName, string $firstName, string $middleInitial = '', string $extension = ''): string
+    {
+        $name = trim($lastName) . ', ' . trim($firstName);
+        $middle = trim($middleInitial);
+        $ext = trim($extension);
+
+        if ($middle !== '') {
+            $name .= ' ' . $middle;
+        }
+
+        if ($ext !== '') {
+            $name .= ' ' . $ext;
+        }
+
+        return trim($name, ", \t\n\r\0\x0B");
+    }
+
+    private function formatActivity(ActivityLog $log): array
+    {
+        $actorName = 'System';
+        if ($log->actor) {
+            $first = trim((string) ($log->actor->first_name ?? ''));
+            $last = trim((string) ($log->actor->last_name ?? ''));
+            $actorName = trim($first . ' ' . $last);
+            if ($actorName === '') {
+                $actorName = 'User #' . (int) $log->actor->id;
+            }
+        }
+
+        return [
+            'id' => (int) $log->id,
+            'actor_user_id' => $log->actor_user_id ? (int) $log->actor_user_id : null,
+            'actor_name' => $actorName,
+            'actor_role' => (string) ($log->actor_role ?? ''),
+            'action_type' => (string) $log->action_type,
+            'entity_type' => (string) $log->entity_type,
+            'entity_id' => $log->entity_id ? (int) $log->entity_id : null,
+            'title' => (string) $log->title,
+            'description' => (string) $log->description,
+            'meta' => is_array($log->meta) ? $log->meta : null,
+            'created_at' => optional($log->created_at)?->toISOString(),
+        ];
+    }
+
+    private function actorCollegeId(int $userId): int
+    {
+        if ($userId <= 0) {
+            return 0;
+        }
+
+        return (int) (DB::table('employees')
+            ->where('user_id', $userId)
+            ->value($this->employeeOrgUnitColumn()) ?? 0);
+    }
+
+    private function collegeDeanActivitiesBaseQuery(int $collegeId): Builder
+    {
+        $employeeOrgUnitColumn = $this->employeeOrgUnitColumn();
+        $programOrgUnitColumn = $this->programOrgUnitColumn();
+
+        $instructorUserIds = DB::table('employees')
+            ->join('users', 'users.id', '=', 'employees.user_id')
+            ->where("employees.{$employeeOrgUnitColumn}", $collegeId)
+            ->where(function ($query) {
+                $query->whereRaw("FIND_IN_SET('instructor', REPLACE(users.role, ' ', '')) > 0")
+                    ->orWhere('users.role', 'instructor');
+            })
+            ->pluck('users.id');
+
+        $programIds = DB::table('programs')
+            ->where($programOrgUnitColumn, $collegeId)
+            ->pluck('id');
+
+        return ActivityLog::query()
+            ->where(function ($query) use ($instructorUserIds, $programIds, $collegeId) {
+                if ($instructorUserIds->isNotEmpty()) {
+                    $query->where(function ($instructorActivity) use ($instructorUserIds) {
+                        $instructorActivity->whereIn('actor_user_id', $instructorUserIds)
+                            ->where(function ($role) {
+                                $role->whereRaw("FIND_IN_SET('instructor', REPLACE(actor_role, ' ', '')) > 0")
+                                    ->orWhere('actor_role', 'instructor');
+                            });
+                    });
+                }
+
+                $screeningCondition = function ($screeningActivity) use ($programIds, $collegeId) {
+                    $screeningActivity->where('action_type', 'screening_exam_taken')
+                        ->where(function ($scope) use ($programIds, $collegeId) {
+                            if ($programIds->isNotEmpty()) {
+                                $scope->whereIn('entity_id', $programIds)
+                                    ->orWhereIn('meta->program_id', $programIds);
+                            }
+
+                            $scope->orWhere('meta->program_college_id', $collegeId)
+                                ->orWhere('meta->college_id', $collegeId);
+                        });
+                };
+
+                if ($instructorUserIds->isNotEmpty()) {
+                    $query->orWhere($screeningCondition);
+                    return;
+                }
+
+                $query->where($screeningCondition);
+            });
     }
 
     public function entranceExamineeResults(Request $request)

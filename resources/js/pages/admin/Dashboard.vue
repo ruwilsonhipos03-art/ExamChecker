@@ -12,7 +12,7 @@
             </div>
         </div>
 
-        <div class="row g-4">
+        <div class="row g-4 mb-4">
             <div class="col-md-3" v-for="(stat, index) in stats" :key="index">
                 <div class="card border-0 shadow-sm p-4 rounded-4 stat-card h-100 bg-white">
                     <div class="d-flex align-items-center gap-3 mb-3">
@@ -25,6 +25,28 @@
                 </div>
             </div>
         </div>
+
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden bg-white">
+            <div class="p-4 border-bottom d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0 text-dark">Recent Activity</h5>
+                <button class="btn btn-sm btn-link text-decoration-none fw-bold text-emerald" @click="goToReports">See All</button>
+            </div>
+
+            <div class="card-body p-0">
+                <div v-if="activities.length === 0" class="p-4 text-muted">No activity yet.</div>
+
+                <div v-for="a in activities" :key="a.id" class="p-4 border-bottom d-flex align-items-center gap-3">
+                    <div class="p-2 rounded-3 bg-emerald-light text-emerald">
+                        <i :class="actionIcon(a.action_type)"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="fw-semibold text-dark">{{ a.title }}</div>
+                        <div class="small text-muted">{{ a.description }}</div>
+                        <div class="small text-muted">{{ formatDateTime(a.created_at) }} | {{ prettyRole(a.actor_role) }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -32,9 +54,12 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue';
 import axios from 'axios';
 import Swal from 'sweetalert2';
+import { useRouter } from 'vue-router';
 
+const router = useRouter();
 const currentTime = ref('');
 const firstName = ref('Admin');
+const activities = ref([]);
 let statsRefreshTimer = null;
 
 const stats = ref([
@@ -57,6 +82,36 @@ const normalizeCount = (payload, ...keys) => {
     return '0';
 };
 
+const prettyRole = (role) => {
+    if (!role) return 'N/A';
+    return String(role).replaceAll('_', ' ').toUpperCase();
+};
+
+const actionIcon = (action) => {
+    const map = {
+        student_registered: 'bi bi-person-plus-fill',
+        screening_exam_taken: 'bi bi-person-check-fill',
+        exam_created: 'bi bi-file-earmark-plus-fill',
+        exam_updated: 'bi bi-pencil-square',
+        exam_deleted: 'bi bi-trash-fill',
+        student_subject_assigned: 'bi bi-link-45deg',
+        student_subject_unassigned: 'bi bi-unlink',
+    };
+
+    return map[action] || 'bi bi-activity';
+};
+
+const formatDateTime = (value) => {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleString();
+};
+
+const goToReports = () => {
+    router.push('/admin/reports');
+};
+
 const loadStats = async () => {
     try {
         const { data } = await axios.get('/api/admin/dashboard/stats');
@@ -66,6 +121,8 @@ const loadStats = async () => {
             { label: 'Colleges', value: normalizeCount(data, 'colleges', 'total_colleges'), icon: 'bi-building-fill', colorClass: 'bg-emerald-light text-emerald' },
             { label: 'Programs', value: normalizeCount(data, 'programs', 'total_programs'), icon: 'bi-journal-bookmark-fill', colorClass: 'bg-emerald-light text-emerald' }
         ];
+
+        activities.value = Array.isArray(data?.recent_activities) ? data.recent_activities : [];
     } catch (error) {
         Swal.fire({
             icon: 'error',
@@ -98,7 +155,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* Colors shifted to match Emerald/Green theme */
 .text-emerald {
     color: #10b981;
 }

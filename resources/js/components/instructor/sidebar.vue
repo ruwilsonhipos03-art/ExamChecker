@@ -47,6 +47,9 @@
                     <router-link to="/instructor/reports" class="sub-item">
                         <i class="bi bi-file-bar-graph-fill"></i> Reports
                     </router-link>
+                    <router-link to="/instructor/analysis" class="sub-item">
+                        <i class="bi bi-bar-chart-line-fill"></i> Analysis
+                    </router-link>
                 </div>
             </div>
         </div>

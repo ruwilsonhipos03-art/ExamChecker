@@ -12,7 +12,7 @@
 
             <router-link to="/entrance/students" class="nav-item">
                 <i class="bi bi-people-fill"></i>
-                <span v-if="!isCollapsed">Students</span>
+                <span v-if="!isCollapsed">Applicants</span>
             </router-link>
 
             <router-link to="/entrance/program-requirements" class="nav-item">
@@ -45,6 +45,9 @@
                     </router-link>
                     <router-link to="/entrance/reports" class="sub-item">
                         <i class="bi bi-file-bar-graph-fill"></i> Reports
+                    </router-link>
+                    <router-link to="/entrance/analysis" class="sub-item">
+                        <i class="bi bi-bar-chart-line-fill"></i> Analysis
                     </router-link>
                 </div>
             </div>

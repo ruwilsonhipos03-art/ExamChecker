@@ -1,7 +1,26 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AnswerKeyController;
+use App\Http\Controllers\Api\AnswerSheetController;
+use App\Http\Controllers\Api\DashboardStatsController;
+use App\Http\Controllers\Api\ExamController;
+use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\Admin\CollegeController;
+use App\Http\Controllers\Api\Admin\EmployeeController;
+use App\Http\Controllers\Api\Admin\ExamScheduleController;
+use App\Http\Controllers\Api\Admin\OfficeController;
+use App\Http\Controllers\Api\Admin\ProgramController;
+use App\Http\Controllers\Api\Admin\ProgramRequirementController;
+use App\Http\Controllers\Api\Admin\SubjectController;
+use App\Http\Controllers\Api\CollegeDean\CollegeDeanManagementController;
+use App\Http\Controllers\Api\EntranceExaminer\ExamSubjectController;
+use App\Http\Controllers\Api\EntranceExaminer\OmrScanController;
+use App\Http\Controllers\Api\Instructor\InstructorManagementController;
+use App\Http\Controllers\Api\Student\StudentRecommendationController;
+use App\Http\Controllers\Api\Student\StudentScheduleController;
+use App\Http\Controllers\Api\Student\StudentSubjectController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -24,75 +43,79 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/profile/email', [AuthController::class, 'updateEmail']);
 
     // General Resources
-    Route::apiResource('exams', App\Http\Controllers\Api\ExamController::class);
-    Route::get('programs', [App\Http\Controllers\Api\ProgramController::class, 'index']);
-    Route::apiResource('answer-sheets', App\Http\Controllers\Api\AnswerSheetController::class);
-    Route::post('/answer-sheets/generate', [\App\Http\Controllers\Api\AnswerSheetController::class, 'generatePdf']);
-    Route::post('/answer-sheets/print-selected', [\App\Http\Controllers\Api\AnswerSheetController::class, 'printSelected']);
-    Route::get('/answer-sheets/{id}/print', [\App\Http\Controllers\Api\AnswerSheetController::class, 'printSingle']);
+    Route::apiResource('exams', ExamController::class);
+    Route::get('programs', [ProgramController::class, 'index']);
+    Route::apiResource('answer-sheets', AnswerSheetController::class);
+    Route::post('/answer-sheets/generate', [AnswerSheetController::class, 'generatePdf']);
+    Route::post('/answer-sheets/print-selected', [AnswerSheetController::class, 'printSelected']);
+    Route::get('/answer-sheets/{id}/print', [AnswerSheetController::class, 'printSingle']);
     // CRUD Routes
-    Route::apiResource('answer-keys', App\Http\Controllers\Api\AnswerKeyController::class);
+    Route::apiResource('answer-keys', AnswerKeyController::class);
 
     // PDF Download Route
-    Route::get('/answer-keys/{id}/download', [App\Http\Controllers\Api\AnswerKeyController::class, 'downloadPdf']);
+    Route::get('/answer-keys/{id}/download', [AnswerKeyController::class, 'downloadPdf']);
 
     // Admin Group: Controllers are only resolved when these routes are hit
     Route::prefix('admin')->group(function () {
-        Route::get('reports/all-users', [\App\Http\Controllers\Api\ReportController::class, 'index']);
-        Route::get('dashboard/stats', [\App\Http\Controllers\Api\DashboardStatsController::class, 'admin']);
+        Route::get('reports/all-users', [ReportController::class, 'index']);
+        Route::get('activities', [ReportController::class, 'adminActivities']);
+        Route::get('students', [ReportController::class, 'adminStudents']);
+        Route::get('dashboard/stats', [DashboardStatsController::class, 'admin']);
 
-        Route::apiResource('subjects', App\Http\Controllers\Api\SubjectController::class);
-        Route::apiResource('offices', App\Http\Controllers\Api\OfficeController::class);
-        Route::apiResource('colleges', App\Http\Controllers\Api\CollegeController::class);
-        Route::apiResource('exam-schedules', App\Http\Controllers\Api\ExamScheduleController::class);
-        Route::apiResource('programs', App\Http\Controllers\Api\ProgramController::class);
-        Route::apiResource('program-requirements', App\Http\Controllers\Api\ProgramRequirementController::class);
-        Route::apiResource('employees', App\Http\Controllers\Api\EmployeeController::class);
+        Route::apiResource('subjects', SubjectController::class);
+        Route::apiResource('offices', OfficeController::class);
+        Route::apiResource('colleges', CollegeController::class);
+        Route::apiResource('exam-schedules', ExamScheduleController::class);
+        Route::apiResource('programs', ProgramController::class);
+        Route::apiResource('program-requirements', ProgramRequirementController::class);
+        Route::apiResource('employees', EmployeeController::class);
     });
 
     // Department Head Group
     Route::prefix('college_dean')->group(function () {
-        Route::get('dashboard/stats', [\App\Http\Controllers\Api\DashboardStatsController::class, 'collegeDean']);
-        Route::get('students', [\App\Http\Controllers\Api\CollegeDeanManagementController::class, 'students']);
-        Route::get('subjects', [\App\Http\Controllers\Api\CollegeDeanManagementController::class, 'subjects']);
-        Route::get('instructors', [\App\Http\Controllers\Api\CollegeDeanManagementController::class, 'instructors']);
+        Route::get('dashboard/stats', [DashboardStatsController::class, 'collegeDean']);
+        Route::get('activities', [ReportController::class, 'collegeDeanActivities']);
+        Route::get('students', [CollegeDeanManagementController::class, 'students']);
+        Route::get('subjects', [CollegeDeanManagementController::class, 'subjects']);
+        Route::get('instructors', [CollegeDeanManagementController::class, 'instructors']);
 
-        Route::get('subject-assignments/students', [\App\Http\Controllers\Api\CollegeDeanManagementController::class, 'studentAssignments']);
-        Route::post('subject-assignments/students', [\App\Http\Controllers\Api\CollegeDeanManagementController::class, 'storeStudentAssignment']);
-        Route::delete('subject-assignments/students/{id}', [\App\Http\Controllers\Api\CollegeDeanManagementController::class, 'destroyStudentAssignment']);
+        Route::get('subject-assignments/students', [CollegeDeanManagementController::class, 'studentAssignments']);
+        Route::post('subject-assignments/students', [CollegeDeanManagementController::class, 'storeStudentAssignment']);
+        Route::delete('subject-assignments/students/{id}', [CollegeDeanManagementController::class, 'destroyStudentAssignment']);
 
-        Route::get('subject-assignments/instructors', [\App\Http\Controllers\Api\CollegeDeanManagementController::class, 'instructorAssignments']);
-        Route::post('subject-assignments/instructors', [\App\Http\Controllers\Api\CollegeDeanManagementController::class, 'storeInstructorAssignment']);
-        Route::delete('subject-assignments/instructors/{id}', [\App\Http\Controllers\Api\CollegeDeanManagementController::class, 'destroyInstructorAssignment']);
+        Route::get('subject-assignments/instructors', [CollegeDeanManagementController::class, 'instructorAssignments']);
+        Route::post('subject-assignments/instructors', [CollegeDeanManagementController::class, 'storeInstructorAssignment']);
+        Route::delete('subject-assignments/instructors/{id}', [CollegeDeanManagementController::class, 'destroyInstructorAssignment']);
     });
 
     // Entrance Group
     Route::prefix('entrance')->group(function () {
-        Route::get('dashboard/stats', [\App\Http\Controllers\Api\DashboardStatsController::class, 'entrance']);
-        Route::get('reports/examinee-results', [\App\Http\Controllers\Api\ReportController::class, 'entranceExamineeResults']);
-        Route::get('reports/examinee-results/{answerSheetId}', [\App\Http\Controllers\Api\ReportController::class, 'entranceExamineeResultDetail']);
-        Route::get('students/took-exams', [\App\Http\Controllers\Api\ReportController::class, 'entranceStudentsWhoTookExams']);
-        Route::post('omr/check', [\App\Http\Controllers\Api\OmrScanController::class, 'check']);
-        Route::apiResource('exam-subjects', App\Http\Controllers\Api\ExamSubjectController::class);
+        Route::get('dashboard/stats', [DashboardStatsController::class, 'entrance']);
+        Route::get('reports/examinee-results', [ReportController::class, 'entranceExamineeResults']);
+        Route::get('reports/examinee-results/{answerSheetId}', [ReportController::class, 'entranceExamineeResultDetail']);
+        Route::get('students/took-exams', [ReportController::class, 'entranceStudentsWhoTookExams']);
+        Route::post('omr/check', [OmrScanController::class, 'check']);
+        Route::apiResource('exam-subjects', ExamSubjectController::class);
         // Define routes here
     });
 
     // Instructor Group
     Route::prefix('instructor')->group(function () {
-        Route::get('dashboard/stats', [\App\Http\Controllers\Api\DashboardStatsController::class, 'instructor']);
-        Route::get('students', [\App\Http\Controllers\Api\InstructorManagementController::class, 'students']);
-        Route::get('subjects', [\App\Http\Controllers\Api\InstructorManagementController::class, 'subjects']);
-        Route::get('subjects/{subjectId}/students', [\App\Http\Controllers\Api\InstructorManagementController::class, 'subjectStudents']);
+        Route::get('dashboard/stats', [DashboardStatsController::class, 'instructor']);
+        Route::get('students', [InstructorManagementController::class, 'students']);
+        Route::get('subjects', [InstructorManagementController::class, 'subjects']);
+        Route::get('subjects/{subjectId}/students', [InstructorManagementController::class, 'subjectStudents']);
     });
 
     // Student Group
     Route::prefix('student')->group(function () {
-        Route::get('dashboard/stats', [\App\Http\Controllers\Api\DashboardStatsController::class, 'student']);
-        Route::post('answer-sheets/scan', [\App\Http\Controllers\Api\AnswerSheetController::class, 'scanAndLink']);
-        Route::get('schedules', [\App\Http\Controllers\Api\StudentScheduleController::class, 'index']);
-        Route::get('reports', [\App\Http\Controllers\Api\ReportController::class, 'studentExamResults']);
-        Route::get('program-recommendations', [\App\Http\Controllers\Api\StudentRecommendationController::class, 'index']);
-        Route::post('program-recommendations/select', [\App\Http\Controllers\Api\StudentRecommendationController::class, 'saveSelection']);
-        Route::post('program-recommendations/decision', [\App\Http\Controllers\Api\StudentRecommendationController::class, 'saveScreeningDecision']);
+        Route::get('dashboard/stats', [DashboardStatsController::class, 'student']);
+        Route::post('answer-sheets/scan', [AnswerSheetController::class, 'scanAndLink']);
+        Route::get('subjects', [StudentSubjectController::class, 'index']);
+        Route::get('schedules', [StudentScheduleController::class, 'index']);
+        Route::get('reports', [ReportController::class, 'studentExamResults']);
+        Route::get('program-recommendations', [StudentRecommendationController::class, 'index']);
+        Route::post('program-recommendations/select', [StudentRecommendationController::class, 'saveSelection']);
+        Route::post('program-recommendations/decision', [StudentRecommendationController::class, 'saveScreeningDecision']);
     });
 });

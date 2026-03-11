@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\Exam;
 use App\Models\Program;
 use App\Models\User;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -263,6 +264,23 @@ class ExamController extends Controller
 
         $loaded = $exam->load(['creator.user', 'examSubjects.subject', 'program']);
         $withExaminer = $this->addExaminerFirstName(collect([$loaded]))->first();
+
+        $actor = Auth::user();
+        ActivityLogger::log(
+            Auth::id() ? (int) Auth::id() : null,
+            (string) ($actor?->role ?? ''),
+            'exam_created',
+            'exam',
+            (int) $exam->id,
+            'Exam created',
+            'Created exam "' . (string) $exam->Exam_Title . '".',
+            [
+                'exam_type' => (string) $exam->Exam_Type,
+                'program_id' => $exam->program_id ? (int) $exam->program_id : null,
+                'program_name' => (string) ($exam->program?->Program_Name ?? ''),
+            ]
+        );
+
         return response()->json($withExaminer, 201);
     }
 
@@ -315,6 +333,23 @@ class ExamController extends Controller
 
         $loaded = $exam->fresh()->load(['creator.user', 'examSubjects.subject', 'program']);
         $withExaminer = $this->addExaminerFirstName(collect([$loaded]))->first();
+
+        $actor = Auth::user();
+        ActivityLogger::log(
+            Auth::id() ? (int) Auth::id() : null,
+            (string) ($actor?->role ?? ''),
+            'exam_updated',
+            'exam',
+            (int) $exam->id,
+            'Exam updated',
+            'Updated exam "' . (string) $exam->Exam_Title . '".',
+            [
+                'exam_type' => (string) $exam->Exam_Type,
+                'program_id' => $exam->program_id ? (int) $exam->program_id : null,
+                'program_name' => (string) ($exam->program?->Program_Name ?? ''),
+            ]
+        );
+
         return response()->json($withExaminer);
     }
 
@@ -324,7 +359,26 @@ class ExamController extends Controller
     public function destroy($id)
     {
         $exam = $this->ownedExamsQuery()->findOrFail($id);
+        $examTitle = (string) ($exam->Exam_Title ?? 'Unknown');
+        $examType = (string) ($exam->Exam_Type ?? '');
+        $examProgramId = $exam->program_id ? (int) $exam->program_id : null;
         $exam->delete();
+
+        $actor = Auth::user();
+        ActivityLogger::log(
+            Auth::id() ? (int) Auth::id() : null,
+            (string) ($actor?->role ?? ''),
+            'exam_deleted',
+            'exam',
+            (int) $id,
+            'Exam deleted',
+            'Deleted exam "' . $examTitle . '".',
+            [
+                'exam_type' => $examType,
+                'program_id' => $examProgramId,
+            ]
+        );
+
         return response()->json(null, 204);
     }
 }
