@@ -23,6 +23,7 @@
             <thead class="table-light">
               <tr>
                 <th class="ps-3">Student #</th>
+                <th>QR</th>
                 <th>Name</th>
                 <th>Program</th>
                 <th>Username</th>
@@ -38,6 +39,16 @@
               </tr>
               <tr v-for="student in filteredStudents" :key="student.id">
                 <td class="ps-3 fw-semibold">{{ student.student_number || '-' }}</td>
+                <td>
+                  <img
+                    v-if="student.student_qr_svg"
+                    :src="`data:image/svg+xml;base64,${student.student_qr_svg}`"
+                    alt="Student QR"
+                    width="60"
+                    height="60"
+                  >
+                  <span v-else class="text-muted small">-</span>
+                </td>
                 <td>{{ student.full_name || '-' }}</td>
                 <td>{{ student.program_name || '-' }}</td>
                 <td>{{ student.username || '-' }}</td>

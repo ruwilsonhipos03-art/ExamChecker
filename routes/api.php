@@ -17,7 +17,9 @@ use App\Http\Controllers\Api\CollegeDean\CollegeDeanManagementController;
 use App\Http\Controllers\Api\EntranceExaminer\ExamSubjectController;
 use App\Http\Controllers\Api\EntranceExaminer\OmrScanController;
 use App\Http\Controllers\Api\Instructor\InstructorManagementController;
+use App\Http\Controllers\Api\Instructor\TermOmrScanController;
 use App\Http\Controllers\Api\Student\StudentRecommendationController;
+use App\Http\Controllers\Api\Student\StudentQrController;
 use App\Http\Controllers\Api\Student\StudentScheduleController;
 use App\Http\Controllers\Api\Student\StudentSubjectController;
 use Illuminate\Support\Facades\Route;
@@ -47,6 +49,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('programs', [ProgramController::class, 'index']);
     Route::apiResource('answer-sheets', AnswerSheetController::class);
     Route::post('/answer-sheets/generate', [AnswerSheetController::class, 'generatePdf']);
+    Route::post('/answer-sheets/generate-term', [AnswerSheetController::class, 'generateTermPdf']);
     Route::post('/answer-sheets/print-selected', [AnswerSheetController::class, 'printSelected']);
     Route::get('/answer-sheets/{id}/print', [AnswerSheetController::class, 'printSingle']);
     // CRUD Routes
@@ -105,12 +108,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('students', [InstructorManagementController::class, 'students']);
         Route::get('subjects', [InstructorManagementController::class, 'subjects']);
         Route::get('subjects/{subjectId}/students', [InstructorManagementController::class, 'subjectStudents']);
+        Route::post('omr/check-term', [TermOmrScanController::class, 'check']);
     });
 
     // Student Group
     Route::prefix('student')->group(function () {
         Route::get('dashboard/stats', [DashboardStatsController::class, 'student']);
         Route::post('answer-sheets/scan', [AnswerSheetController::class, 'scanAndLink']);
+        Route::get('qr', [StudentQrController::class, 'show']);
         Route::get('subjects', [StudentSubjectController::class, 'index']);
         Route::get('schedules', [StudentScheduleController::class, 'index']);
         Route::get('reports', [ReportController::class, 'studentExamResults']);

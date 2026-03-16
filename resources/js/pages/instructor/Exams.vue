@@ -5,7 +5,7 @@
                 <div class="row align-items-center">
                     <div class="col">
                         <h4 class="fw-bold mb-1 text-dark">Examiner Workspace</h4>
-                        <p class="text-muted small mb-0">Create and manage entrance examination sets</p>
+                        <p class="text-muted small mb-0">Create and manage term examination sets</p>
                     </div>
                     <div class="col-auto">
                         <button @click="openModal()" class="btn btn-emerald fw-bold px-4 shadow-sm">
@@ -99,7 +99,15 @@
                                 <label class="form-label small fw-bold text-secondary">EXAM TITLE</label>
                                 <input v-model="form.Exam_Title" type="text" class="form-control border-2" required>
                             </div>
-
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-secondary">SUBJECT</label>
+                                <select v-model="form.subject_id" class="form-select border-2" required>
+                                    <option value="">Select subject...</option>
+                                    <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
+                                        {{ subject.subject_name }}
+                                    </option>
+                                </select>
+                            </div>
                         </div>
                         <div class="modal-footer border-0 p-4 pt-0">
                             <button type="button" class="btn btn-light fw-bold" data-bs-dismiss="modal">CANCEL</button>
@@ -129,13 +137,23 @@ let modalInstance = null;
 const isLoading = ref(false);
 const isSaving = ref(false);
 const deletingId = ref(null);
-const EXAM_TYPE_ALIASES = ['entrance', 'screening', 'screening exam'];
+const EXAM_TYPE_ALIASES = ['term', 'term exam', 'departmental', 'normal', 'normal exam'];
 
-const form = reactive({ Exam_Title: '', Exam_Type: 'Entrance' });
+const subjects = ref([]);
+const form = reactive({
+    Exam_Title: '',
+    Exam_Type: 'Term Exam',
+    subject_id: '',
+    Starting_Number: 1,
+    Ending_Number: 100
+});
 
 const resetForm = () => {
     form.Exam_Title = '';
-    form.Exam_Type = 'Entrance';
+    form.Exam_Type = 'Term Exam';
+    form.subject_id = '';
+    form.Starting_Number = 1;
+    form.Ending_Number = 100;
 };
 
 const filteredExams = computed(() => {
@@ -172,7 +190,13 @@ const openModal = (exam = null) => {
     editMode.value = !!exam;
     currentId.value = exam?.id || null;
     form.Exam_Title = exam?.Exam_Title || '';
-    form.Exam_Type = exam?.Exam_Type || 'Entrance';
+    form.Exam_Type = exam?.Exam_Type || 'Term Exam';
+    const subjectRow = Array.isArray(exam?.exam_subjects) ? exam.exam_subjects[0] : null;
+    if (subjectRow) {
+        form.subject_id = subjectRow.subject_id ? String(subjectRow.subject_id) : '';
+        form.Starting_Number = 1;
+        form.Ending_Number = 100;
+    }
     modalInstance.show();
 };
 
@@ -183,6 +207,13 @@ const saveExam = async () => {
             Exam_Title: form.Exam_Title,
             Exam_Type: form.Exam_Type,
         };
+        if (form.subject_id) {
+            payload.exam_subjects = [{
+                subject_id: Number(form.subject_id),
+                Starting_Number: Number(form.Starting_Number),
+                Ending_Number: Number(form.Ending_Number),
+            }];
+        }
         if (editMode.value) {
             await axios.put(`/api/exams/${currentId.value}`, payload);
         } else {
@@ -217,8 +248,18 @@ const deleteExam = async (id) => {
     }
 };
 
+const fetchSubjects = async () => {
+    try {
+        const { data } = await axios.get('/api/instructor/subjects');
+        subjects.value = Array.isArray(data?.data) ? data.data : [];
+    } catch (_) {
+        subjects.value = [];
+    }
+};
+
 onMounted(() => {
     fetchExams();
+    fetchSubjects();
     modalInstance = new Modal(modalRef.value);
 });
 </script>

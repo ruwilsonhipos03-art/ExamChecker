@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AnswerSheet;
 use App\Models\Exam;
+use App\Models\ExamSubject;
 use App\Models\Recommendation;
+use App\Models\Student;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -129,6 +131,141 @@ class AnswerSheetController extends Controller
         ]);
 
         $fileName = 'answer_sheets_generated_' . now()->format('Ymd_His') . '.pdf';
+
+        return $pdf->download($fileName);
+    }
+
+    public function generateTermPdf(Request $request)
+    {
+        @set_time_limit(300);
+        @ini_set('memory_limit', '1024M');
+
+        $user = Auth::user();
+        if (!$user || !str_contains((string) $user->role, 'instructor')) {
+            return response()->json([
+                'message' => 'Only instructors can generate term exam sheets.',
+            ], 403);
+        }
+
+        $data = $request->validate([
+            'exam_id' => 'required|exists:exams,id',
+            'subject_id' => 'required|exists:subjects,id',
+        ]);
+
+        $examId = (int) $data['exam_id'];
+        $subjectId = (int) $data['subject_id'];
+
+        $employeeId = DB::table('employees')->where('user_id', $user->id)->value('id');
+        if (!$employeeId) {
+            return response()->json([
+                'message' => 'No employee profile is linked to your account.',
+            ], 422);
+        }
+
+        $exam = Exam::with('examSubjects.subject')->where('id', $examId)->first();
+        if (!$exam || (int) $exam->created_by !== (int) $employeeId) {
+            return response()->json([
+                'message' => 'You can only generate sheets for exams you created.',
+            ], 403);
+        }
+
+        $examSubject = ExamSubject::where('exam_id', $examId)
+            ->where('subject_id', $subjectId)
+            ->first();
+        if (!$examSubject) {
+            return response()->json([
+                'message' => 'Selected subject is not attached to this exam.',
+            ], 422);
+        }
+
+        $isAssigned = DB::table('subject_instructor_assignments')
+            ->where('subject_id', $subjectId)
+            ->where('instructor_user_id', $user->id)
+            ->exists();
+        if (!$isAssigned) {
+            return response()->json([
+                'message' => 'Subject is not assigned to this instructor.',
+            ], 403);
+        }
+
+        $students = DB::table('subject_student_assignments as ssa')
+            ->join('users as u', 'u.id', '=', 'ssa.student_user_id')
+            ->leftJoin('students as st', 'st.user_id', '=', 'u.id')
+            ->where('ssa.subject_id', $subjectId)
+            ->where('u.role', 'student')
+            ->orderBy('u.last_name')
+            ->orderBy('u.first_name')
+            ->select([
+                'u.id as user_id',
+                'u.first_name',
+                'u.middle_initial',
+                'u.last_name',
+                'u.extension_name',
+                'st.Student_Number',
+            ])
+            ->get();
+
+        if ($students->isEmpty()) {
+            return response()->json([
+                'message' => 'No students are assigned to this subject.',
+            ], 422);
+        }
+
+        $sheets = [];
+        foreach ($students as $row) {
+            $studentNumber = (string) ($row->Student_Number ?? '');
+            if ($studentNumber === '') {
+                $student = Student::query()->firstOrCreate(
+                    ['user_id' => (int) $row->user_id],
+                    ['Student_Number' => Student::generateStudentNumber()]
+                );
+                if (!$student->Student_Number) {
+                    $student->Student_Number = Student::generateStudentNumber();
+                    $student->save();
+                }
+                $studentNumber = (string) $student->Student_Number;
+            }
+
+            $sheet = AnswerSheet::firstOrCreate(
+                [
+                    'exam_id' => $examId,
+                    'user_id' => (int) $row->user_id,
+                    'created_by' => (int) $user->id,
+                ],
+                [
+                    'status' => 'generated',
+                    'qr_payload' => '',
+                ]
+            );
+
+            $payload = $this->buildTermExamQrPayload(
+                $studentNumber,
+                $examId,
+                $subjectId,
+                (string) ($row->last_name ?? ''),
+                (string) ($row->first_name ?? ''),
+                (string) ($row->middle_initial ?? ''),
+                (string) ($row->extension_name ?? '')
+            );
+
+            $sheet->update([
+                'qr_payload' => $payload,
+                'status' => $sheet->status ?: 'generated',
+            ]);
+
+            $sheets[] = $this->formatTermSheetForPdf($sheet, $exam, $examSubject, $row, $studentNumber, $payload);
+        }
+
+        $pdf = Pdf::setOption([
+            'dpi' => 96,
+            'defaultFont' => 'Arial',
+            'isRemoteEnabled' => false,
+        ])->loadView('pdf.term_exam_sheet', [
+            'sheets' => $sheets,
+            'exam' => $exam,
+        ]);
+
+        $fileName = 'term_exam_sheets_' . now()->format('Ymd_His') . '.pdf';
 
         return $pdf->download($fileName);
     }
@@ -361,6 +498,69 @@ class AnswerSheetController extends Controller
             'sheetQrMime' => 'image/svg+xml',
             'sheetQr' => base64_encode($qrSvg),
         ];
+    }
+
+    private function formatTermSheetForPdf(
+        AnswerSheet $sheet,
+        Exam $exam,
+        ExamSubject $examSubject,
+        $studentRow,
+        string $studentNumber,
+        string $payload
+    ): array {
+        $qrSvg = QrCode::format('svg')
+            ->size(100)
+            ->margin(0)
+            ->generate($payload);
+
+        $fullName = trim(
+            trim((string) ($studentRow->last_name ?? '')) . ', ' .
+            trim((string) ($studentRow->first_name ?? ''))
+        );
+        $middle = trim((string) ($studentRow->middle_initial ?? ''));
+        if ($middle !== '') {
+            $fullName .= ' ' . $middle;
+        }
+        $ext = trim((string) ($studentRow->extension_name ?? ''));
+        if ($ext !== '') {
+            $fullName .= ' ' . $ext;
+        }
+
+        return [
+            'id' => $sheet->id,
+            'sheetCode' => $payload,
+            'sheetQrMime' => 'image/svg+xml',
+            'sheetQr' => base64_encode($qrSvg),
+            'student_number' => $studentNumber,
+            'student_name' => trim($fullName),
+            'exam_title' => (string) ($exam->Exam_Title ?? ''),
+            'subject_name' => (string) ($examSubject->subject?->Subject_Name ?? ''),
+        ];
+    }
+
+    private function buildTermExamQrPayload(
+        string $studentNumber,
+        int $examId,
+        int $subjectId,
+        string $lastName,
+        string $firstName,
+        string $middleInitial,
+        string $extension
+    ): string {
+        $safe = function (string $value): string {
+            $clean = str_replace('|', ' ', $value);
+            return trim($clean);
+        };
+
+        return implode('|', [
+            $safe($studentNumber),
+            (string) $examId,
+            (string) $subjectId,
+            $safe($lastName),
+            $safe($firstName),
+            $safe($middleInitial),
+            $safe($extension),
+        ]);
     }
 
     private function isScreeningExamType(?string $examType): bool

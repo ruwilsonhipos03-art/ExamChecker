@@ -144,6 +144,7 @@ const printingId = ref(null);
 const deletingId = ref(null);
 const isPrintingSelected = ref(false);
 const isDeletingSelected = ref(false);
+const TERM_TYPE_ALIASES = ['term', 'term exam', 'departmental', 'normal', 'normal exam'];
 
 const form = reactive({
     exam_id: '',
@@ -167,7 +168,7 @@ const fetchSheets = async () => {
     try {
         const [sheetsRes, examsRes] = await Promise.all([
             axios.get('/api/answer-sheets'),
-            axios.get('/api/exams'),
+            axios.get('/api/exams', { params: { scope: 'term' } }),
         ]);
 
         // Always show highest sheet id first.
@@ -176,7 +177,10 @@ const fetchSheets = async () => {
             : [];
         const validIds = new Set(sheets.value.map((sheet) => sheet.id));
         selectedSheetIds.value = selectedSheetIds.value.filter((id) => validIds.has(id));
-        availableExams.value = Array.isArray(examsRes.data) ? examsRes.data : [];
+        const rawExams = Array.isArray(examsRes.data) ? examsRes.data : [];
+        availableExams.value = rawExams.filter((exam) =>
+            TERM_TYPE_ALIASES.includes(String(exam?.Exam_Type || '').trim().toLowerCase())
+        );
     } catch (e) {
         console.error('Failed to load data', e);
         Swal.fire({

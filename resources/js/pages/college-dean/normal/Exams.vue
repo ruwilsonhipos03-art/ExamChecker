@@ -112,6 +112,15 @@
                                     </option>
                                 </select>
                             </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-secondary">SUBJECT</label>
+                                <select v-model="form.subject_id" class="form-select border-2" required>
+                                    <option value="">Select subject...</option>
+                                    <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
+                                        {{ subject.subject_name }}
+                                    </option>
+                                </select>
+                            </div>
 
                         </div>
                         <div class="modal-footer border-0 p-4 pt-0">
@@ -143,14 +152,25 @@ const isLoading = ref(false);
 const isSaving = ref(false);
 const deletingId = ref(null);
 const programs = ref([]);
+const subjects = ref([]);
 const EXAM_TYPE_ALIASES = ['term', 'term exam', 'departmental', 'normal', 'normal exam'];
 
-const form = reactive({ Exam_Title: '', Exam_Type: 'Term', program_id: '' });
+const form = reactive({
+    Exam_Title: '',
+    Exam_Type: 'Term',
+    program_id: '',
+    subject_id: '',
+    Starting_Number: 1,
+    Ending_Number: 100
+});
 
 const resetForm = () => {
     form.Exam_Title = '';
     form.Exam_Type = 'Term';
     form.program_id = '';
+    form.subject_id = '';
+    form.Starting_Number = 1;
+    form.Ending_Number = 100;
 };
 
 const filteredExams = computed(() => {
@@ -203,6 +223,12 @@ const openModal = (exam = null) => {
     form.Exam_Title = exam?.Exam_Title || '';
     form.Exam_Type = exam?.Exam_Type || 'Term';
     form.program_id = exam?.program_id ? String(exam.program_id) : '';
+    const subjectRow = Array.isArray(exam?.exam_subjects) ? exam.exam_subjects[0] : null;
+    if (subjectRow) {
+        form.subject_id = subjectRow.subject_id ? String(subjectRow.subject_id) : '';
+        form.Starting_Number = 1;
+        form.Ending_Number = 100;
+    }
     modalInstance.show();
 };
 
@@ -214,6 +240,13 @@ const saveExam = async () => {
             Exam_Type: form.Exam_Type,
             program_id: form.program_id ? Number(form.program_id) : null,
         };
+        if (form.subject_id) {
+            payload.exam_subjects = [{
+                subject_id: Number(form.subject_id),
+                Starting_Number: Number(form.Starting_Number),
+                Ending_Number: Number(form.Ending_Number),
+            }];
+        }
         if (editMode.value) {
             await axios.put(`/api/exams/${currentId.value}`, payload);
         } else {
@@ -248,8 +281,17 @@ const deleteExam = async (id) => {
     }
 };
 
+const fetchSubjects = async () => {
+    try {
+        const { data } = await axios.get('/api/instructor/subjects');
+        subjects.value = Array.isArray(data?.data) ? data.data : [];
+    } catch (_) {
+        subjects.value = [];
+    }
+};
+
 onMounted(() => {
-    Promise.all([fetchExams(), fetchPrograms()]);
+    Promise.all([fetchExams(), fetchPrograms(), fetchSubjects()]);
     modalInstance = new Modal(modalRef.value);
 });
 </script>

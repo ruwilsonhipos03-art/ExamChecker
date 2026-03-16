@@ -18,7 +18,7 @@
             v-model="search"
             type="text"
             class="form-control form-control-sm"
-            placeholder="Search by student name, number, program, subject, username, or email"
+            placeholder="Search by student name, number, program, or subject"
           >
         </div>
 
@@ -30,24 +30,20 @@
                 <th>Name</th>
                 <th>Program</th>
                 <th>Subjects</th>
-                <th>Username</th>
-                <th>Email</th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="loading">
-                <td colspan="6" class="text-center py-4 text-muted">Loading students...</td>
+                <td colspan="4" class="text-center py-4 text-muted">Loading students...</td>
               </tr>
               <tr v-else-if="!filteredStudents.length">
-                <td colspan="6" class="text-center py-4 text-muted">No students found.</td>
+                <td colspan="4" class="text-center py-4 text-muted">No students found.</td>
               </tr>
               <tr v-for="student in filteredStudents" :key="student.id">
                 <td class="ps-3 fw-semibold">{{ student.student_number || '-' }}</td>
                 <td>{{ student.full_name || '-' }}</td>
                 <td>{{ student.program_name || '-' }}</td>
                 <td>{{ student.subject_names || '-' }}</td>
-                <td>{{ student.username || '-' }}</td>
-                <td>{{ student.email || '-' }}</td>
               </tr>
             </tbody>
           </table>
@@ -75,8 +71,6 @@ const filteredStudents = computed(() => {
       s.full_name,
       s.program_name,
       s.subject_names,
-      s.username,
-      s.email,
     ]
       .map((item) => String(item || '').toLowerCase())
       .join(' ');

@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class CollegeDeanManagementController extends Controller
 {
@@ -88,6 +89,11 @@ class CollegeDeanManagementController extends Controller
             'data' => $rows->map(fn ($row) => [
                 'id' => (int) $row->id,
                 'student_number' => (string) ($row->Student_Number ?? ''),
+                'student_qr_svg' => !empty($row->Student_Number)
+                    ? base64_encode(
+                        QrCode::format('svg')->size(100)->margin(0)->generate((string) $row->Student_Number)
+                    )
+                    : null,
                 'full_name' => $this->fullName($row),
                 'username' => (string) ($row->username ?? ''),
                 'email' => (string) ($row->email ?? ''),
@@ -215,6 +221,15 @@ class CollegeDeanManagementController extends Controller
             ->where('subject_id', $subjectId)
             ->latest('id')
             ->value('instructor_user_id');
+        $latestInstructorUserId = $latestInstructorUserId ? (int) $latestInstructorUserId : null;
+        $latestInstructorName = '';
+        if ($latestInstructorUserId) {
+            $latestInstructor = User::query()
+                ->where('id', $latestInstructorUserId)
+                ->select(['id', 'first_name', 'middle_initial', 'last_name', 'extension_name'])
+                ->first();
+            $latestInstructorName = $this->fullName($latestInstructor);
+        }
 
         $studentsById = User::query()
             ->whereIn('id', $studentUserIds->all())
@@ -303,6 +318,8 @@ class CollegeDeanManagementController extends Controller
                     'subject_name' => $subjectName,
                     'student_user_id' => $studentUserId,
                     'student_name' => $studentName,
+                    'instructor_user_id' => $latestInstructorUserId,
+                    'instructor_name' => $latestInstructorName,
                 ]
             );
         }
@@ -479,6 +496,27 @@ class CollegeDeanManagementController extends Controller
                 'instructor_user_id' => $latestInstructorUserId ? (int) $latestInstructorUserId : null,
                 'updated_at' => now(),
             ]);
+
+        if ($assignment->wasRecentlyCreated) {
+            $subjectName = (string) (DB::table('subjects')->where('id', (int) $validated['subject_id'])->value('Subject_Name') ?? '');
+            $instructorName = $this->fullName($instructor);
+
+            ActivityLogger::log(
+                (int) $deanUser->id,
+                (string) ($deanUser->role ?? ''),
+                'instructor_subject_assigned',
+                'subject_instructor_assignment',
+                (int) $assignment->id,
+                'Instructor assigned to subject',
+                'Assigned instructor "' . $instructorName . '" to subject "' . $subjectName . '".',
+                [
+                    'subject_id' => (int) $validated['subject_id'],
+                    'subject_name' => $subjectName,
+                    'instructor_user_id' => (int) $validated['instructor_user_id'],
+                    'instructor_name' => $instructorName,
+                ]
+            );
+        }
 
         return response()->json([
             'success' => true,

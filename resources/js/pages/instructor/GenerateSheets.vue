@@ -108,16 +108,23 @@
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label small fw-bold text-secondary">NUMBER OF SHEETS</label>
-                            <input v-model.number="form.count" type="number" min="1" max="200"
-                                class="form-control border-2" placeholder="e.g. 5">
+                            <label class="form-label small fw-bold text-secondary">SELECT SUBJECT</label>
+                            <select v-model="form.subject_id" class="form-select border-2">
+                                <option value="">Select subject...</option>
+                                <option v-for="subject in examSubjects" :key="subject.id" :value="subject.id">
+                                    {{ subject.name }}
+                                </option>
+                            </select>
                         </div>
-                        <p class="small text-muted mb-0">This will generate answer sheets and download the PDF.</p>
+                        <div class="small text-muted mb-0">
+                            Assigned students: {{ selectedSubjectCount }}
+                        </div>
+                        <p class="small text-muted mb-0">This will generate term exam sheets and download the PDF.</p>
                     </div>
                     <div class="modal-footer bg-light border-top">
                         <button type="button" class="btn btn-light px-4 fw-bold" data-bs-dismiss="modal">CANCEL</button>
                         <button @click="generateSheets" class="btn btn-emerald px-4 fw-bold"
-                            :disabled="isGenerating || !form.exam_id || !form.count">
+                            :disabled="isGenerating || !form.exam_id || !form.subject_id">
                             <span v-if="isGenerating" class="spinner-border spinner-border-sm me-2"></span>
                             {{ isGenerating ? 'GENERATING / DOWNLOADING...' : 'GENERATE / DOWNLOAD' }}
                         </button>
@@ -129,7 +136,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import axios from 'axios';
 import { Modal } from 'bootstrap';
 import Swal from 'sweetalert2';
@@ -137,6 +144,7 @@ import Swal from 'sweetalert2';
 // State
 const sheets = ref([]);
 const availableExams = ref([]);
+const subjects = ref([]);
 const isLoading = ref(false);
 const isGenerating = ref(false);
 const selectedSheetIds = ref([]);
@@ -147,7 +155,7 @@ const isDeletingSelected = ref(false);
 
 const form = reactive({
     exam_id: '',
-    count: 1
+    subject_id: ''
 });
 
 const modalRef = ref(null);
@@ -190,6 +198,15 @@ const fetchSheets = async () => {
     }
 };
 
+const fetchSubjects = async () => {
+    try {
+        const { data } = await axios.get('/api/instructor/subjects');
+        subjects.value = Array.isArray(data?.data) ? data.data : [];
+    } catch (_) {
+        subjects.value = [];
+    }
+};
+
 const toggleSelectAll = (event) => {
     if (event.target.checked) {
         selectedSheetIds.value = sheets.value.map((sheet) => sheet.id);
@@ -200,16 +217,30 @@ const toggleSelectAll = (event) => {
 
 const openModal = () => {
     form.exam_id = '';
-    form.count = 1;
+    form.subject_id = '';
     modalInstance.show();
 };
+
+const examSubjects = computed(() => {
+    const exam = availableExams.value.find((row) => String(row.id) === String(form.exam_id));
+    const list = Array.isArray(exam?.exam_subjects) ? exam.exam_subjects : [];
+    return list.map((row) => ({
+        id: row.subject_id,
+        name: row.subject?.Subject_Name || 'Subject',
+    }));
+});
+
+const selectedSubjectCount = computed(() => {
+    const subject = subjects.value.find((row) => String(row.id) === String(form.subject_id));
+    return subject?.students_count || 0;
+});
 
 const generateSheets = async () => {
     isGenerating.value = true;
     try {
         const res = await axios.post(
-            '/api/answer-sheets/generate',
-            { exam_id: form.exam_id, count: form.count },
+            '/api/answer-sheets/generate-term',
+            { exam_id: form.exam_id, subject_id: form.subject_id },
             { responseType: 'blob' }
         );
 
@@ -217,7 +248,7 @@ const generateSheets = async () => {
         const url = window.URL.createObjectURL(blob);
         const headerName = res.headers['content-disposition'];
         const match = headerName?.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/i);
-        const fileName = match ? match[1].replace(/['"]/g, '') : `answer_sheets_generated.pdf`;
+        const fileName = match ? match[1].replace(/['"]/g, '') : `term_exam_sheets.pdf`;
 
         const link = document.createElement('a');
         link.href = url;
@@ -230,10 +261,7 @@ const generateSheets = async () => {
         modalInstance.hide();
         await fetchSheets();
 
-        Toast.fire({
-            icon: 'success',
-            title: 'Answer sheets generated and downloaded'
-        });
+        Toast.fire({ icon: 'success', title: 'Term exam sheets generated and downloaded' });
     } catch (e) {
         Swal.fire({
             icon: 'error',
@@ -383,6 +411,7 @@ const deleteSelectedSheets = async () => {
 
 onMounted(() => {
     fetchSheets();
+    fetchSubjects();
     if (modalRef.value) {
         modalInstance = new Modal(modalRef.value);
     }

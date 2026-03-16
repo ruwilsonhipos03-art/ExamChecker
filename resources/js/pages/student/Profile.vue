@@ -39,6 +39,24 @@
                                 <div class="text-muted small fw-bold">ROLE</div>
                                 <div class="fw-semibold text-capitalize">{{ user.role || 'student' }}</div>
                             </div>
+                            <div class="col-md-6">
+                                <div class="text-muted small fw-bold">STUDENT NUMBER</div>
+                                <div class="fw-semibold">{{ studentNumber || '-' }}</div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="text-muted small fw-bold">STUDENT QR</div>
+                                <div class="d-flex align-items-center gap-3">
+                                    <div v-if="qrLoading" class="text-muted small">Loading QR...</div>
+                                    <img
+                                        v-else-if="studentQrSvg"
+                                        :src="`data:image/svg+xml;base64,${studentQrSvg}`"
+                                        alt="Student QR"
+                                        width="120"
+                                        height="120"
+                                    >
+                                    <div v-else class="text-muted small">No QR available.</div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="border-top pt-4">
@@ -77,7 +95,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import axios from 'axios';
 
 const sending = ref(false);
@@ -85,6 +103,9 @@ const verifying = ref(false);
 const codeSent = ref(false);
 const code = ref('');
 const emailSaving = ref(false);
+const studentNumber = ref('');
+const studentQrSvg = ref('');
+const qrLoading = ref(false);
 
 const user = ref({
     first_name: '',
@@ -196,6 +217,22 @@ const verifyCode = async () => {
         verifying.value = false;
     }
 };
+
+const loadStudentQr = async () => {
+    qrLoading.value = true;
+    try {
+        const { data } = await axios.get('/api/student/qr');
+        studentNumber.value = data?.student_number || '';
+        studentQrSvg.value = data?.student_qr_svg || '';
+    } catch (_) {
+        studentNumber.value = '';
+        studentQrSvg.value = '';
+    } finally {
+        qrLoading.value = false;
+    }
+};
+
+onMounted(loadStudentQr);
 </script>
 
 <style scoped>

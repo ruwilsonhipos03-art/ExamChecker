@@ -86,6 +86,7 @@ class DashboardStatsController extends Controller
                     'action_type' => (string) $log->action_type,
                     'title' => (string) $log->title,
                     'description' => (string) $log->description,
+                    'meta' => $log->meta,
                     'created_at' => optional($log->created_at)->toISOString(),
                 ];
             })
@@ -266,45 +267,78 @@ class DashboardStatsController extends Controller
     {
         $userId = Auth::id();
 
-        $examIds = DB::table('exam_subjects')
+        $employeeId = DB::table('employees')
             ->where('user_id', $userId)
-            ->distinct()
-            ->pluck('exam_id');
+            ->value('id');
 
-        $subjects = DB::table('exam_subjects')
-            ->where('user_id', $userId)
+        $subjects = DB::table('subject_instructor_assignments')
+            ->where('instructor_user_id', $userId)
             ->distinct('subject_id')
             ->count('subject_id');
 
-        $totalStudents = 0;
+        $totalStudents = DB::table('subject_student_assignments')
+            ->where('instructor_user_id', $userId)
+            ->distinct('student_user_id')
+            ->count('student_user_id');
+
         $checkedSheets = 0;
         $passedSheets = 0;
 
-        if ($examIds->isNotEmpty()) {
-            $totalStudents = DB::table('answer_sheets')
-                ->whereIn('exam_id', $examIds)
-                ->whereNotNull('user_id')
-                ->distinct('user_id')
-                ->count('user_id');
+        if ($employeeId) {
+            $examIds = DB::table('exams')
+                ->where('created_by', $employeeId)
+                ->pluck('id');
 
-            $checkedSheets = DB::table('answer_sheets')
-                ->whereIn('exam_id', $examIds)
-                ->where('status', 'checked')
-                ->whereNotNull('total_score')
-                ->count();
+            if ($examIds->isNotEmpty()) {
+                $checkedSheets = DB::table('answer_sheets')
+                    ->whereIn('exam_id', $examIds)
+                    ->where('status', 'checked')
+                    ->whereNotNull('total_score')
+                    ->distinct('user_id')
+                    ->count('user_id');
 
-            $passedSheets = DB::table('answer_sheets')
-                ->whereIn('exam_id', $examIds)
-                ->where('status', 'checked')
-                ->where('total_score', '>=', self::PASSING_SCORE)
-                ->count();
+                $passedSheets = DB::table('answer_sheets')
+                    ->whereIn('exam_id', $examIds)
+                    ->where('status', 'checked')
+                    ->where('total_score', '>=', self::PASSING_SCORE)
+                    ->distinct('user_id')
+                    ->count('user_id');
+            }
         }
+
+        $recentActivities = ActivityLog::query()
+            ->with('actor:id,first_name,last_name')
+            ->whereIn('action_type', ['student_subject_assigned', 'instructor_subject_assigned'])
+            ->where('meta->instructor_user_id', $userId)
+            ->orderByDesc('created_at')
+            ->limit(5)
+            ->get()
+            ->map(function (ActivityLog $log) {
+                $actorName = 'System';
+                if ($log->actor) {
+                    $actorName = trim((string) $log->actor->first_name . ' ' . (string) $log->actor->last_name);
+                    if ($actorName === '') {
+                        $actorName = 'User #' . (int) $log->actor->id;
+                    }
+                }
+
+                return [
+                    'id' => (int) $log->id,
+                    'actor_name' => $actorName,
+                    'actor_role' => (string) ($log->actor_role ?? ''),
+                    'action_type' => (string) $log->action_type,
+                    'title' => (string) $log->title,
+                    'description' => (string) $log->description,
+                    'created_at' => optional($log->created_at)->toISOString(),
+                ];
+            })
+            ->values();
 
         return response()->json([
             'total_students' => $totalStudents,
             'subjects' => $subjects,
-            'students_per_subject' => $subjects > 0 ? round($totalStudents / $subjects, 2) : 0,
             'passing_rate' => $this->asPercent($passedSheets, $checkedSheets),
+            'recent_activities' => $recentActivities,
         ]);
     }
 

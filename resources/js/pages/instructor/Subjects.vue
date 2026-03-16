@@ -73,20 +73,16 @@
                 <th>Student #</th>
                 <th>Name</th>
                 <th>Program</th>
-                <th>Username</th>
-                <th>Email</th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="!popupStudents.length">
-                <td colspan="5" class="text-center py-3 text-muted">No students assigned yet.</td>
+                <td colspan="3" class="text-center py-3 text-muted">No students assigned yet.</td>
               </tr>
               <tr v-for="student in popupStudents" :key="student.id">
                 <td>{{ student.student_number || '-' }}</td>
                 <td>{{ student.full_name || '-' }}</td>
                 <td>{{ student.program_name || '-' }}</td>
-                <td>{{ student.username || '-' }}</td>
-                <td>{{ student.email || '-' }}</td>
               </tr>
             </tbody>
           </table>

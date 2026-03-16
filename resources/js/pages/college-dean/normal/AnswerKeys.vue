@@ -198,7 +198,7 @@ const fetchData = async () => {
     try {
         const [keys, exams] = await Promise.all([
             axios.get('/api/answer-keys'),
-            axios.get('/api/exams')
+            axios.get('/api/exams', { params: { scope: 'term' } })
         ]);
         const allExams = Array.isArray(exams.data) ? exams.data : [];
         const filteredExams = allExams.filter(exam =>

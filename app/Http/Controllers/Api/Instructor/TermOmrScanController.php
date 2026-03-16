@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\EntranceExaminer;
+namespace App\Http\Controllers\Api\Instructor;
 
 use App\Http\Controllers\Controller;
 use App\Models\AnswerKey;
@@ -14,17 +14,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Process\Process;
 
-class OmrScanController extends Controller
+class TermOmrScanController extends Controller
 {
-    private const SCREENING_TYPE_ALIASES = ['screening', 'screening exam'];
-    private const PASSING_SCORE = 75;
-
     public function check(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !$this->hasAnyRole($user->role, ['entrance_examiner', 'college_dean', 'instructor'])) {
+        if (!$user || !$this->hasRole($user->role, 'instructor')) {
             return response()->json([
-                'message' => 'Only entrance examiners, college deans, and instructors can check answer sheets.',
+                'message' => 'Only instructors can check term exam answer sheets.',
             ], 403);
         }
 
@@ -85,12 +82,34 @@ class OmrScanController extends Controller
             ];
         }
 
-        $sheet = AnswerSheet::with('exam')->where('qr_payload', $payload)->first();
+        $parsed = $this->parseTermPayload($payload);
+        if (!$parsed) {
+            return [
+                'success' => false,
+                'file' => $file->getClientOriginalName(),
+                'message' => 'Invalid term exam QR payload.',
+            ];
+        }
+
+        $student = Student::query()->where('Student_Number', $parsed['student_number'])->first();
+        if (!$student) {
+            return [
+                'success' => false,
+                'file' => $file->getClientOriginalName(),
+                'message' => 'Student number not found.',
+            ];
+        }
+
+        $examId = (int) $parsed['exam_id'];
+        $sheet = AnswerSheet::with('exam')
+            ->where('exam_id', $examId)
+            ->where('user_id', (int) $student->user_id)
+            ->first();
         if (!$sheet) {
             return [
                 'success' => false,
                 'file' => $file->getClientOriginalName(),
-                'message' => "No answer sheet matched QR payload {$payload}.",
+                'message' => 'Answer sheet not found for this student/exam.',
             ];
         }
 
@@ -100,17 +119,35 @@ class OmrScanController extends Controller
                 'success' => false,
                 'file' => $file->getClientOriginalName(),
                 'sheet_code' => $payload,
-                'message' => "You can only check answer sheets for exams you created.",
+                'message' => 'You can only check answer sheets for exams you created.',
             ];
         }
 
-        $answerKey = AnswerKey::where('exam_id', $sheet->exam_id)->latest('id')->first();
+        $subjectId = (int) $parsed['subject_id'];
+        $examSubjectId = ExamSubject::query()
+            ->where('exam_id', $examId)
+            ->where('subject_id', $subjectId)
+            ->value('id');
+
+        $answerKey = AnswerKey::query()
+            ->where('exam_id', $examId)
+            ->when($examSubjectId, fn ($q) => $q->where('exam_subject_id', $examSubjectId))
+            ->latest('id')
+            ->first();
+
+        if (!$answerKey && $examSubjectId) {
+            $answerKey = AnswerKey::query()
+                ->where('exam_id', $examId)
+                ->latest('id')
+                ->first();
+        }
+
         if (!$answerKey) {
             return [
                 'success' => false,
                 'file' => $file->getClientOriginalName(),
                 'sheet_code' => $payload,
-                'message' => "No answer key found for exam {$sheet->exam?->Exam_Title}.",
+                'message' => 'No answer key found for this exam.',
             ];
         }
 
@@ -150,15 +187,6 @@ class OmrScanController extends Controller
             }
         });
 
-        if (
-            $this->isScreeningExamType((string) ($sheet->exam?->Exam_Type ?? ''))
-            && $totalScore >= self::PASSING_SCORE
-            && (int) ($sheet->exam?->program_id ?? 0) > 0
-            && (int) ($sheet->user_id ?? 0) > 0
-        ) {
-            $this->assignStudentProgram((int) $sheet->user_id, (int) $sheet->exam->program_id);
-        }
-
         return [
             'success' => true,
             'file' => $file->getClientOriginalName(),
@@ -172,7 +200,7 @@ class OmrScanController extends Controller
 
     private function runOmrScript(string $imagePath): array
     {
-        $scriptPath = base_path('python/CheckExam.py');
+        $scriptPath = base_path('python/CheckTermExam.py');
         $workingDir = base_path('python');
         $commands = $this->buildOmrCommands($scriptPath, $imagePath);
         $attemptErrors = [];
@@ -280,6 +308,24 @@ class OmrScanController extends Controller
         return array_values($unique);
     }
 
+    private function parseTermPayload(string $payload): ?array
+    {
+        $parts = array_map('trim', explode('|', $payload));
+        if (count($parts) < 7) {
+            return null;
+        }
+
+        return [
+            'student_number' => $parts[0],
+            'exam_id' => (int) $parts[1],
+            'subject_id' => (int) $parts[2],
+            'last_name' => $parts[3],
+            'first_name' => $parts[4],
+            'middle_initial' => $parts[5],
+            'extension' => $parts[6],
+        ];
+    }
+
     private function normalizeAnswers(array $answers): array
     {
         $normalized = [];
@@ -331,22 +377,6 @@ class OmrScanController extends Controller
         return $score;
     }
 
-    private function hasAnyRole(?string $roles, array $allowedRoles): bool
-    {
-        if (!$roles) {
-            return false;
-        }
-
-        $roleList = array_map('trim', explode(',', $roles));
-        foreach ($allowedRoles as $role) {
-            if (in_array($role, $roleList, true)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     private function canManageExam(User $user, int $examId): bool
     {
         if ($examId <= 0) {
@@ -380,28 +410,13 @@ class OmrScanController extends Controller
         }
     }
 
-    private function isScreeningExamType(string $examType): bool
+    private function hasRole(?string $roles, string $role): bool
     {
-        $value = strtolower(trim($examType));
-        return in_array($value, self::SCREENING_TYPE_ALIASES, true);
-    }
-
-    private function assignStudentProgram(int $userId, int $programId): void
-    {
-        if ($userId <= 0 || $programId <= 0) {
-            return;
+        if (!$roles) {
+            return false;
         }
 
-        $student = Student::query()->where('user_id', $userId)->first();
-        if ($student) {
-            $student->update(['program_id' => $programId]);
-            return;
-        }
-
-        Student::query()->create([
-            'user_id' => $userId,
-            'Student_Number' => Student::generateStudentNumber(),
-            'program_id' => $programId,
-        ]);
+        $roleList = array_map('trim', explode(',', $roles));
+        return in_array($role, $roleList, true);
     }
 }

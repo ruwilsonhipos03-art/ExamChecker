@@ -53,7 +53,7 @@
         />
 
         <div class="row g-4 mb-4">
-            <div class="col-md-3" v-for="(stat, index) in stats" :key="index">
+            <div class="col-md-4" v-for="(stat, index) in stats" :key="index">
                 <div class="card border-0 shadow-sm p-4 rounded-4 stat-card h-100 bg-white">
                     <div class="d-flex align-items-center gap-3 mb-3">
                         <div :class="['stat-icon', stat.colorClass]">
@@ -72,7 +72,10 @@
                 <a href="#" class="text-emerald text-decoration-none small fw-bold">View All</a>
             </div>
             <div class="card-body p-0">
-                <div v-for="a in activities" :key="a.id" class="p-4 border-bottom d-flex align-items-center gap-3">
+                <div v-if="!activities.length" class="p-4 text-center text-muted">
+                    No recent activity.
+                </div>
+                <div v-else v-for="a in activities" :key="a.id" class="p-4 border-bottom d-flex align-items-center gap-3">
                     <div class="p-2 rounded-3 bg-emerald-light text-emerald">
                         <i :class="a.icon"></i>
                     </div>
@@ -102,14 +105,17 @@ let statsRefreshTimer = null;
 const stats = ref([
     { label: 'Total Students', value: '0', icon: 'bi-people-fill', colorClass: 'bg-emerald-light text-emerald' },
     { label: 'Subjects', value: '0', icon: 'bi-book-fill', colorClass: 'bg-info-subtle text-info' },
-    { label: 'Students / Subject', value: '0', icon: 'bi-bar-chart-fill', colorClass: 'bg-warning-subtle text-warning' },
     { label: 'Passing Rate', value: '0%', icon: 'bi-graph-up-arrow', colorClass: 'bg-emerald-light text-emerald' }
 ]);
 
-const activities = [
-    { id: 1, title: 'Entrance Exam - Batch 2024 generated', time: '2 hours ago', icon: 'bi-file-earmark-check' },
-    { id: 2, title: '45 new students enrolled', time: '5 hours ago', icon: 'bi-person-plus' }
-];
+const activities = ref([]);
+
+const formatActivityTime = (value) => {
+    if (!value) return '—';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleString();
+};
 
 const loadStats = async () => {
     try {
@@ -117,9 +123,38 @@ const loadStats = async () => {
         stats.value = [
             { label: 'Total Students', value: Number(data.total_students || 0).toLocaleString(), icon: 'bi-people-fill', colorClass: 'bg-emerald-light text-emerald' },
             { label: 'Subjects', value: Number(data.subjects || 0).toLocaleString(), icon: 'bi-book-fill', colorClass: 'bg-info-subtle text-info' },
-            { label: 'Students / Subject', value: Number(data.students_per_subject || 0).toFixed(2), icon: 'bi-bar-chart-fill', colorClass: 'bg-warning-subtle text-warning' },
             { label: 'Passing Rate', value: `${Number(data.passing_rate || 0).toFixed(2)}%`, icon: 'bi-graph-up-arrow', colorClass: 'bg-emerald-light text-emerald' }
         ];
+        const recent = Array.isArray(data?.recent_activities) ? data.recent_activities : [];
+        const extractSubjectName = (value) => {
+            if (!value) return '';
+            const match = String(value).match(/subject \"([^\"]+)\"/i);
+            return match?.[1] || '';
+        };
+
+        activities.value = recent.map((item) => {
+            const meta = item?.meta || {};
+            const subjectName = meta.subject_name
+                || extractSubjectName(item?.description)
+                || extractSubjectName(item?.title)
+                || 'Subject';
+            const studentName = meta.student_name || 'Student';
+            const actionType = item?.action_type;
+
+            let title = item?.title || item?.description || 'Activity';
+            if (actionType === 'instructor_subject_assigned') {
+                title = `You got assigned to a new subject "${subjectName}"`;
+            } else if (actionType === 'student_subject_assigned') {
+                title = `You got a new student "${studentName}" in "${subjectName}"`;
+            }
+
+            return {
+                id: item?.id ?? `${actionType || 'activity'}-${item?.created_at || Math.random()}`,
+                title,
+                time: formatActivityTime(item?.created_at),
+                icon: actionType === 'instructor_subject_assigned' ? 'bi-journal-plus' : 'bi-person-plus',
+            };
+        });
     } catch (error) {
         Swal.fire({
             icon: 'error',
@@ -183,7 +218,9 @@ const submitOmr = async (formData) => {
             didOpen: () => Swal.showLoading(),
         });
 
-        const { data } = await axios.post('/api/entrance/omr/check', formData, {
+        const endpoint = '/api/instructor/omr/check-term';
+
+        const { data } = await axios.post(endpoint, formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
         });
 

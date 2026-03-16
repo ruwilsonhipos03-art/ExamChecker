@@ -182,8 +182,8 @@ class ExamController extends Controller
     private function validateSubjectRanges(array $rows): void
     {
         foreach ($rows as $index => $row) {
-            $start = (int) ($row['Starting_Number'] ?? 0);
-            $end = (int) ($row['Ending_Number'] ?? 0);
+            $start = (int) ($row['Starting_Number'] ?? 1);
+            $end = (int) ($row['Ending_Number'] ?? 100);
 
             if ($end <= $start) {
                 throw ValidationException::withMessages([
@@ -222,8 +222,8 @@ class ExamController extends Controller
             'program_id' => 'nullable|integer|exists:programs,id',
             'exam_subjects' => 'nullable|array|min:1',
             'exam_subjects.*.subject_id' => 'required|distinct|exists:subjects,id',
-            'exam_subjects.*.Starting_Number' => 'required|integer|min:1',
-            'exam_subjects.*.Ending_Number' => 'required|integer|min:1',
+            'exam_subjects.*.Starting_Number' => 'nullable|integer|min:1',
+            'exam_subjects.*.Ending_Number' => 'nullable|integer|min:1',
         ]);
         $this->validateSubjectRanges($validated['exam_subjects'] ?? []);
         $this->assertProgramForCollegeDean(isset($validated['program_id']) ? (int) $validated['program_id'] : null);
@@ -245,10 +245,12 @@ class ExamController extends Controller
 
             $subjects = collect($validated['exam_subjects'] ?? [])
                 ->map(function ($row) {
+                    $start = (int) ($row['Starting_Number'] ?? 1);
+                    $end = (int) ($row['Ending_Number'] ?? 100);
                     return [
                         'subject_id' => (int) $row['subject_id'],
-                        'Starting_Number' => (int) $row['Starting_Number'],
-                        'Ending_Number' => (int) $row['Ending_Number'],
+                        'Starting_Number' => $start,
+                        'Ending_Number' => $end,
                         'user_id' => Auth::id(),
                     ];
                 })
@@ -297,8 +299,8 @@ class ExamController extends Controller
             'program_id' => 'nullable|integer|exists:programs,id',
             'exam_subjects' => 'nullable|array|min:1',
             'exam_subjects.*.subject_id' => 'required|distinct|exists:subjects,id',
-            'exam_subjects.*.Starting_Number' => 'required|integer|min:1',
-            'exam_subjects.*.Ending_Number' => 'required|integer|min:1',
+            'exam_subjects.*.Starting_Number' => 'nullable|integer|min:1',
+            'exam_subjects.*.Ending_Number' => 'nullable|integer|min:1',
         ]);
         $this->validateSubjectRanges($validated['exam_subjects'] ?? []);
         $this->assertProgramForCollegeDean(isset($validated['program_id']) ? (int) $validated['program_id'] : null);
@@ -315,10 +317,12 @@ class ExamController extends Controller
 
                 $subjects = collect($validated['exam_subjects'] ?? [])
                     ->map(function ($row) {
+                        $start = (int) ($row['Starting_Number'] ?? 1);
+                        $end = (int) ($row['Ending_Number'] ?? 100);
                         return [
                             'subject_id' => (int) $row['subject_id'],
-                            'Starting_Number' => (int) $row['Starting_Number'],
-                            'Ending_Number' => (int) $row['Ending_Number'],
+                            'Starting_Number' => $start,
+                            'Ending_Number' => $end,
                             'user_id' => Auth::id(),
                         ];
                     })

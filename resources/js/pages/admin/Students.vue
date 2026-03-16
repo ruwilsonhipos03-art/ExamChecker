@@ -5,13 +5,10 @@
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <div>
                         <h4 class="fw-bold mb-1 text-dark">Students</h4>
-                        <p class="text-muted small mb-0">All registered students with their latest exam record</p>
+                        <p class="text-muted small mb-0">All registered students</p>
                     </div>
-                    <button
-                        class="btn btn-success fw-bold px-4"
-                        :disabled="loading || filteredRows.length === 0"
-                        @click="downloadWord"
-                    >
+                    <button class="btn btn-success fw-bold px-4" :disabled="loading || filteredRows.length === 0"
+                        @click="downloadWord">
                         <i class="bi bi-download me-2"></i>Download Word
                     </button>
                 </div>
@@ -23,31 +20,20 @@
                 <div class="row g-3 align-items-end">
                     <div class="col-md-4">
                         <label class="form-label small fw-semibold mb-1">Search</label>
-                        <input
-                            v-model.trim="filters.search"
-                            type="text"
-                            class="form-control form-control-sm"
-                            placeholder="Student #, name, username, email..."
-                        >
+                        <input v-model.trim="filters.search" type="text" class="form-control form-control-sm"
+                            placeholder="Student #, name, program...">
                     </div>
 
                     <div class="col-md-3">
                         <label class="form-label small fw-semibold mb-1">Program</label>
                         <select v-model="filters.programName" class="form-select form-select-sm">
                             <option value="">All Programs</option>
-                            <option v-for="program in programOptions" :key="program" :value="program">{{ program }}</option>
+                            <option v-for="program in programOptions" :key="program" :value="program">{{ program }}
+                            </option>
                         </select>
                     </div>
 
                     <div class="col-md-3">
-                        <label class="form-label small fw-semibold mb-1">Exam</label>
-                        <select v-model="filters.examName" class="form-select form-select-sm">
-                            <option value="">All Exams</option>
-                            <option v-for="exam in examOptions" :key="exam" :value="exam">{{ exam }}</option>
-                        </select>
-                    </div>
-
-                    <div class="col-md-2">
                         <label class="form-label small fw-semibold mb-1">Sort Order</label>
                         <select v-model="filters.sortOrder" class="form-select form-select-sm">
                             <option value="asc">Ascending</option>
@@ -66,26 +52,20 @@
                                 <th>Student #</th>
                                 <th>Full Name</th>
                                 <th>Program</th>
-                                <th>Exam</th>
-                                <th class="text-end">Score</th>
-                                <th>Status</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr v-if="loading">
-                                <td colspan="7" class="text-center py-4 text-muted">Loading students...</td>
+                                <td colspan="4" class="text-center py-4 text-muted">Loading students...</td>
                             </tr>
                             <tr v-else-if="filteredRows.length === 0">
-                                <td colspan="7" class="text-center py-4 text-muted">No students found.</td>
+                                <td colspan="4" class="text-center py-4 text-muted">No students found.</td>
                             </tr>
                             <tr v-else v-for="(row, index) in filteredRows" :key="row.id">
                                 <td class="ps-3">{{ index + 1 }}</td>
                                 <td class="fw-semibold">{{ row.student_number || '-' }}</td>
                                 <td>{{ row.full_name || '-' }}</td>
                                 <td>{{ row.program_name || 'N/A' }}</td>
-                                <td>{{ row.exam_name || 'N/A' }}</td>
-                                <td class="text-end">{{ row.exam_total_score ?? '-' }}</td>
-                                <td class="text-capitalize">{{ row.exam_status || 'not_taken' }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -105,17 +85,11 @@ const rows = ref([]);
 const filters = ref({
     search: '',
     programName: '',
-    examName: '',
     sortOrder: 'asc',
 });
 
 const programOptions = computed(() => {
     return [...new Set(rows.value.map((row) => row.program_name).filter(Boolean))]
-        .sort((a, b) => String(a).localeCompare(String(b)));
-});
-
-const examOptions = computed(() => {
-    return [...new Set(rows.value.map((row) => row.exam_name).filter((name) => name && name !== 'N/A'))]
         .sort((a, b) => String(a).localeCompare(String(b)));
 });
 
@@ -131,7 +105,6 @@ const filteredRows = computed(() => {
                 row.username,
                 row.email,
                 row.program_name,
-                row.exam_name,
             ].map((item) => String(item || '').toLowerCase()).join(' ');
 
             return text.includes(q);
@@ -140,10 +113,6 @@ const filteredRows = computed(() => {
 
     if (filters.value.programName) {
         result = result.filter((row) => row.program_name === filters.value.programName);
-    }
-
-    if (filters.value.examName) {
-        result = result.filter((row) => row.exam_name === filters.value.examName);
     }
 
     const factor = filters.value.sortOrder === 'asc' ? 1 : -1;
@@ -189,9 +158,6 @@ const downloadWord = () => {
             <td>${escapeHtml(row.student_number || '-')}</td>
             <td>${escapeHtml(row.full_name || '-')}</td>
             <td>${escapeHtml(row.program_name || 'N/A')}</td>
-            <td>${escapeHtml(row.exam_name || 'N/A')}</td>
-            <td>${row.exam_total_score ?? '-'}</td>
-            <td>${escapeHtml(row.exam_status || 'not_taken')}</td>
         </tr>
     `).join('');
 
@@ -217,9 +183,6 @@ const downloadWord = () => {
                             <th>Student #</th>
                             <th>Full Name</th>
                             <th>Program</th>
-                            <th>Exam</th>
-                            <th>Score</th>
-                            <th>Status</th>
                         </tr>
                     </thead>
                     <tbody>${tableRows}</tbody>

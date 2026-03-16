@@ -605,23 +605,9 @@ class StudentRecommendationController extends Controller
 
         Student::query()->create([
             'user_id' => $userId,
-            'Student_Number' => $this->generateUniqueStudentNumber($userId),
+            'Student_Number' => Student::generateStudentNumber(),
             'program_id' => $programId,
         ]);
-    }
-
-    private function generateUniqueStudentNumber(int $userId): string
-    {
-        $base = 'STU' . str_pad((string) $userId, 6, '0', STR_PAD_LEFT);
-        if (!Student::query()->where('Student_Number', $base)->exists()) {
-            return $base;
-        }
-
-        do {
-            $candidate = $base . '-' . strtoupper(substr((string) bin2hex(random_bytes(3)), 0, 6));
-        } while (Student::query()->where('Student_Number', $candidate)->exists());
-
-        return $candidate;
     }
 
     private function screeningAttemptsByPrograms(int $userId, array $programs): array
