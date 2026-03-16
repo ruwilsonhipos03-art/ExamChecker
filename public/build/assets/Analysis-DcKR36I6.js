@@ -1,0 +1,1 @@
+import{_ as a}from"./ItemAnalysisTable-CxPrpPc5.js";import{D as e,o as t}from"./app-ChfA8GCm.js";const _={__name:"Analysis",setup(s){return(o,r)=>(t(),e(a,{title:"Entrance Exam Item Analysis","exam-type-scope":"all"}))}};export{_ as default};
