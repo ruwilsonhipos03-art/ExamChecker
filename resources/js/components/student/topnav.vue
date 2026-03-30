@@ -36,7 +36,7 @@
                         <i class="bi bi-person me-2"></i> Profile
                     </router-link>
                 </li>
-                <li><a class="dropdown-item py-2" href="#"><i class="bi bi-gear me-2"></i> Settings</a></li>
+                <li><router-link class="dropdown-item py-2" to="/student/settings"><i class="bi bi-gear me-2"></i> Settings</router-link></li>
                 <li>
                     <hr class="dropdown-divider">
                 </li>

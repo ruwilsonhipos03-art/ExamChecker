@@ -4,68 +4,15 @@ import sys
 import os
 import json
 import traceback
-
-DEFAULT_MAX_DIM = 2200
-DEFAULT_REDUCED_FACTOR = 2
+from pyzbar.pyzbar import decode
 
 
-def _env_int(name, default):
-    try:
-        value = int(os.getenv(name, "").strip() or default)
-        return value
-    except (TypeError, ValueError):
-        return default
-
-
-def _clamp_reduced_factor(value):
-    if value in (2, 4, 8):
-        return value
-    return DEFAULT_REDUCED_FACTOR
-
-
-def load_image_low_memory(path):
-    max_dim = _env_int("OMR_MAX_DIM", DEFAULT_MAX_DIM)
-    reduced_factor = _clamp_reduced_factor(
-        _env_int("OMR_REDUCED_FACTOR", DEFAULT_REDUCED_FACTOR)
-    )
-
-    reduced_flag = {
-        2: cv2.IMREAD_REDUCED_COLOR_2,
-        4: cv2.IMREAD_REDUCED_COLOR_4,
-        8: cv2.IMREAD_REDUCED_COLOR_8,
-    }[reduced_factor]
-
-    img = cv2.imread(path, reduced_flag)
-    if img is None:
-        img = cv2.imread(path)
-        if img is None:
-            return None
-
-    if max_dim > 0:
-        h, w = img.shape[:2]
-        largest = max(h, w)
-        if largest > max_dim:
-            scale = float(max_dim) / float(largest)
-            new_w = max(1, int(w * scale))
-            new_h = max(1, int(h * scale))
-            img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
-
-    return img
-
-# ---------------- QR DETECTOR ----------------
+# ---------------- QR FALLBACK ----------------
 def decode_qr_opencv(img):
     detector = cv2.QRCodeDetector()
     data, bbox, _ = detector.detectAndDecode(img)
-    if data and data.strip():
+    if data:
         return data.strip()
-
-    # Fallback for images that contain multiple codes or weaker detections.
-    ok, decoded_infos, points, _ = detector.detectAndDecodeMulti(img)
-    if ok and decoded_infos:
-        for value in decoded_infos:
-            if value and value.strip():
-                return value.strip()
-
     return None
 
 
@@ -92,7 +39,11 @@ def detect_bubble_grid(img, filename):
             int(0.02 * w):int(0.35 * w)
         ]
 
-        qr_data = decode_qr_opencv(qr_crop)
+        codes = decode(qr_crop)
+        if codes:
+            qr_data = codes[0].data.decode("utf-8").strip()
+        else:
+            qr_data = decode_qr_opencv(qr_crop)
 
         # ---------------- FIND GRID ----------------
         contours, _ = cv2.findContours(
@@ -268,10 +219,6 @@ def detect_bubble_grid(img, filename):
 
             sorted_opts = sorted(opts, key=lambda x: x["mean"])
 
-            if len(sorted_opts) < 2:
-                final_answers[str(q_num)] = "invalid"
-                continue
-
             darkest = sorted_opts[0]
             second = sorted_opts[1]
 
@@ -322,11 +269,10 @@ def detect_bubble_grid(img, filename):
 # ---------------- MAIN ----------------
 def main():
     try:
-        cv2.setNumThreads(1)
         if len(sys.argv) > 1:
 
             img_path = sys.argv[1]
-            img = load_image_low_memory(img_path)
+            img = cv2.imread(img_path)
 
             if img is None:
                 print(json.dumps({"error": "Cannot read image"}))

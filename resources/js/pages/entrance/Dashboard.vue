@@ -54,7 +54,13 @@
 
         <div class="row g-4 mb-4">
             <div class="col-md-3" v-for="(stat, index) in stats" :key="index">
-                <div class="card border-0 shadow-sm p-4 rounded-4 stat-card h-100 bg-white">
+                <button
+                    type="button"
+                    class="card border-0 shadow-sm p-4 rounded-4 stat-card h-100 bg-white text-start"
+                    :class="{ 'stat-clickable': Boolean(stat.route) }"
+                    :disabled="!stat.route"
+                    @click="goToStat(stat)"
+                >
                     <div class="d-flex align-items-center gap-3 mb-3">
                         <div :class="['stat-icon', stat.colorClass]">
                             <i :class="stat.icon"></i>
@@ -62,7 +68,7 @@
                     </div>
                     <div class="stat-value h2 fw-bold mb-1">{{ stat.value }}</div>
                     <div class="stat-label text-muted fw-medium">{{ stat.label }}</div>
-                </div>
+                </button>
             </div>
         </div>
 
@@ -99,10 +105,10 @@ const folderInputRef = ref(null);
 const router = useRouter();
 
 const stats = ref([
-    { label: 'Scheduled Applicants', value: '0', icon: 'bi-calendar-check-fill', colorClass: 'bg-warning-subtle text-warning' },
-    { label: 'Pending Results', value: '0', icon: 'bi-hourglass-split', colorClass: 'bg-emerald-light text-emerald' },
-    { label: 'Passed Applicants', value: '0', icon: 'bi-check-circle-fill', colorClass: 'bg-emerald-light text-emerald' },
-    { label: 'Total Applicants', value: '0', icon: 'bi-person-badge-fill', colorClass: 'bg-info-subtle text-info' }
+    { key: 'scheduled_students', label: 'Scheduled Applicants', value: '0', icon: 'bi-calendar-check-fill', colorClass: 'bg-warning-subtle text-warning', route: '/entrance/students' },
+    { key: 'pending_results', label: 'Pending Results', value: '0', icon: 'bi-hourglass-split', colorClass: 'bg-emerald-light text-emerald', route: '/entrance/reports' },
+    { key: 'passed_students', label: 'Passed Applicants', value: '0', icon: 'bi-check-circle-fill', colorClass: 'bg-emerald-light text-emerald', route: '/entrance/reports' },
+    { key: 'total_students', label: 'Total Applicants', value: '0', icon: 'bi-person-badge-fill', colorClass: 'bg-info-subtle text-info', route: '/entrance/students' }
 ]);
 
 const activities = [
@@ -113,12 +119,23 @@ const activities = [
 const loadStats = async () => {
     try {
         const { data } = await axios.get('/api/entrance/dashboard/stats');
-        stats.value = [
-            { label: 'Scheduled Applicants', value: Number(data.scheduled_students || 0).toLocaleString(), icon: 'bi-calendar-check-fill', colorClass: 'bg-warning-subtle text-warning' },
-            { label: 'Pending Results', value: Number(data.pending_results || 0).toLocaleString(), icon: 'bi-hourglass-split', colorClass: 'bg-emerald-light text-emerald' },
-            { label: 'Passed Applicants', value: Number(data.passed_students || 0).toLocaleString(), icon: 'bi-check-circle-fill', colorClass: 'bg-emerald-light text-emerald' },
-            { label: 'Total Applicants', value: Number(data.total_students || 0).toLocaleString(), icon: 'bi-person-badge-fill', colorClass: 'bg-info-subtle text-info' }
-        ];
+        stats.value.forEach((stat) => {
+            if (stat.key === 'scheduled_students') {
+                stat.value = Number(data.scheduled_students || 0).toLocaleString();
+                return;
+            }
+            if (stat.key === 'pending_results') {
+                stat.value = Number(data.pending_results || 0).toLocaleString();
+                return;
+            }
+            if (stat.key === 'passed_students') {
+                stat.value = Number(data.passed_students || 0).toLocaleString();
+                return;
+            }
+            if (stat.key === 'total_students') {
+                stat.value = Number(data.total_students || 0).toLocaleString();
+            }
+        });
     } catch (error) {
         Swal.fire({
             icon: 'error',
@@ -127,6 +144,11 @@ const loadStats = async () => {
             confirmButtonColor: '#ef4444'
         });
     }
+};
+
+const goToStat = (stat) => {
+    if (!stat?.route) return;
+    router.push(stat.route);
 };
 
 const openScanPicker = async () => {
@@ -241,10 +263,31 @@ onMounted(() => {
 /* Dashboard Card Animations */
 .stat-card {
     transition: transform 0.2s ease-in-out;
+    box-shadow: 0 0.75rem 1.5rem rgba(15, 23, 42, 0.08) !important;
 }
 
 .stat-card:hover {
     transform: translateY(-5px);
+}
+
+.stat-clickable {
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    display: block;
+    width: 100%;
+    margin: 0;
+    font: inherit;
+    line-height: inherit;
+}
+
+.stat-clickable::-moz-focus-inner {
+    border: 0;
+    padding: 0;
+}
+
+.stat-clickable:disabled {
+    cursor: default;
 }
 
 .stat-icon {

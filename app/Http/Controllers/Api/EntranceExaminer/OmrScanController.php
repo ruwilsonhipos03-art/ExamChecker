@@ -150,6 +150,20 @@ class OmrScanController extends Controller
             }
         });
 
+        $debugRelative = (string) ($omr['data']['debug'] ?? '');
+        if ($debugRelative !== '') {
+            $debugRelative = ltrim($debugRelative, '/');
+            $candidates = [
+                storage_path('app/public/' . $debugRelative),
+                public_path('storage/' . $debugRelative),
+            ];
+            foreach ($candidates as $debugAbsolute) {
+                if (is_file($debugAbsolute)) {
+                    @unlink($debugAbsolute);
+                }
+            }
+        }
+
         if (
             $this->isScreeningExamType((string) ($sheet->exam?->Exam_Type ?? ''))
             && $totalScore >= self::PASSING_SCORE
@@ -166,7 +180,7 @@ class OmrScanController extends Controller
             'exam_title' => $sheet->exam?->Exam_Title,
             'student_id' => $sheet->user_id,
             'score' => $totalScore,
-            'debug_image' => $omr['data']['debug'] ?? null,
+            'debug_image' => null,
         ];
     }
 

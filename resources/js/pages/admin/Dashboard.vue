@@ -14,7 +14,13 @@
 
         <div class="row g-4 mb-4">
             <div class="col-md-3" v-for="(stat, index) in stats" :key="index">
-                <div class="card border-0 shadow-sm p-4 rounded-4 stat-card h-100 bg-white">
+                <button
+                    type="button"
+                    class="card border-0 shadow-sm p-4 rounded-4 stat-card h-100 bg-white text-start"
+                    :class="{ 'stat-clickable': Boolean(stat.route) }"
+                    :disabled="!stat.route"
+                    @click="goToStat(stat)"
+                >
                     <div class="d-flex align-items-center gap-3 mb-3">
                         <div :class="['stat-icon', stat.colorClass]">
                             <i :class="stat.icon"></i>
@@ -22,7 +28,7 @@
                     </div>
                     <div class="stat-value h2 fw-bold mb-1">{{ stat.value }}</div>
                     <div class="stat-label text-muted fw-medium">{{ stat.label }}</div>
-                </div>
+                </button>
             </div>
         </div>
 
@@ -63,10 +69,10 @@ const activities = ref([]);
 let statsRefreshTimer = null;
 
 const stats = ref([
-    { label: 'Total Employees', value: '0', icon: 'bi-people-fill', colorClass: 'bg-emerald-light text-emerald' },
-    { label: 'Total Students', value: '0', icon: 'bi-person-badge-fill', colorClass: 'bg-emerald-light text-emerald' },
-    { label: 'Colleges', value: '0', icon: 'bi-building-fill', colorClass: 'bg-emerald-light text-emerald' },
-    { label: 'Programs', value: '0', icon: 'bi-journal-bookmark-fill', colorClass: 'bg-emerald-light text-emerald' }
+    { key: 'total_employees', label: 'Total Employees', value: '0', icon: 'bi-people-fill', colorClass: 'bg-emerald-light text-emerald', route: '/admin/users' },
+    { key: 'total_students', label: 'Total Students', value: '0', icon: 'bi-person-badge-fill', colorClass: 'bg-emerald-light text-emerald', route: '/admin/users' },
+    { key: 'colleges', label: 'Colleges', value: '0', icon: 'bi-building-fill', colorClass: 'bg-emerald-light text-emerald', route: '/admin/colleges' },
+    { key: 'programs', label: 'Programs', value: '0', icon: 'bi-journal-bookmark-fill', colorClass: 'bg-emerald-light text-emerald', route: '/admin/programs' }
 ]);
 
 const normalizeCount = (payload, ...keys) => {
@@ -112,15 +118,31 @@ const goToReports = () => {
     router.push('/admin/reports');
 };
 
+const goToStat = (stat) => {
+    if (!stat?.route) return;
+    router.push(stat.route);
+};
+
 const loadStats = async () => {
     try {
         const { data } = await axios.get('/api/admin/dashboard/stats');
-        stats.value = [
-            { label: 'Total Employees', value: normalizeCount(data, 'total_employees', 'employees'), icon: 'bi-people-fill', colorClass: 'bg-emerald-light text-emerald' },
-            { label: 'Total Students', value: normalizeCount(data, 'total_students', 'students'), icon: 'bi-person-badge-fill', colorClass: 'bg-emerald-light text-emerald' },
-            { label: 'Colleges', value: normalizeCount(data, 'colleges', 'total_colleges'), icon: 'bi-building-fill', colorClass: 'bg-emerald-light text-emerald' },
-            { label: 'Programs', value: normalizeCount(data, 'programs', 'total_programs'), icon: 'bi-journal-bookmark-fill', colorClass: 'bg-emerald-light text-emerald' }
-        ];
+        stats.value.forEach((stat) => {
+            if (stat.key === 'total_employees') {
+                stat.value = normalizeCount(data, 'total_employees', 'employees');
+                return;
+            }
+            if (stat.key === 'total_students') {
+                stat.value = normalizeCount(data, 'total_students', 'students');
+                return;
+            }
+            if (stat.key === 'colleges') {
+                stat.value = normalizeCount(data, 'colleges', 'total_colleges');
+                return;
+            }
+            if (stat.key === 'programs') {
+                stat.value = normalizeCount(data, 'programs', 'total_programs');
+            }
+        });
 
         activities.value = Array.isArray(data?.recent_activities) ? data.recent_activities : [];
     } catch (error) {
@@ -165,10 +187,31 @@ onBeforeUnmount(() => {
 
 .stat-card {
     transition: transform 0.2s ease-in-out;
+    box-shadow: 0 0.75rem 1.5rem rgba(15, 23, 42, 0.08) !important;
 }
 
 .stat-card:hover {
     transform: translateY(-5px);
+}
+
+.stat-clickable {
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    display: block;
+    width: 100%;
+    margin: 0;
+    font: inherit;
+    line-height: inherit;
+}
+
+.stat-clickable::-moz-focus-inner {
+    border: 0;
+    padding: 0;
+}
+
+.stat-clickable:disabled {
+    cursor: default;
 }
 
 .stat-icon {

@@ -24,7 +24,7 @@
 
     <div v-else class="row g-3">
       <div v-for="item in reports" :key="item.answer_sheet_id" class="col-12 col-md-6 col-xl-4">
-        <div class="card border-0 shadow-sm rounded-4 h-100 report-card">
+        <div class="card border-0 shadow-sm rounded-4 h-100 report-card" :class="{ 'report-new': isRowNew('reports', item.checked_at) }">
           <div class="card-body p-4">
             <div class="d-flex justify-content-between align-items-start mb-2">
               <h5 class="fw-bold mb-0">{{ item.exam_name }}</h5>
@@ -32,6 +32,7 @@
                 {{ item.result }}
               </span>
             </div>
+            <span v-if="isRowNew('reports', item.checked_at)" class="card-dot" aria-hidden="true"></span>
 
             <div v-if="showSubjectRows(item)" class="meta-row"><span class="meta-label">Math</span><span class="meta-value">{{ item.math }}</span></div>
             <div v-if="showSubjectRows(item)" class="meta-row"><span class="meta-label">English</span><span class="meta-value">{{ item.english }}</span></div>
@@ -55,14 +56,17 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 import axios from 'axios';
 import { useRouter } from 'vue-router';
+import { useNotifications } from '../../composables/useNotifications';
 
 const loading = ref(false);
 const reports = ref([]);
 const errorMessage = ref('');
 const router = useRouter();
+const latestCheckedAt = ref(null);
+const { isRowNew, markSeen } = useNotifications({ poll: false });
 
 const loadReports = async () => {
   loading.value = true;
@@ -71,6 +75,11 @@ const loadReports = async () => {
   try {
     const { data } = await axios.get('/api/student/reports');
     reports.value = Array.isArray(data?.data) ? data.data : [];
+    latestCheckedAt.value = reports.value
+      .map((row) => row.checked_at)
+      .filter(Boolean)
+      .sort()
+      .slice(-1)[0] || null;
   } catch (error) {
     reports.value = [];
     errorMessage.value = error?.response?.data?.message || 'Failed to load reports.';
@@ -117,10 +126,17 @@ const goToRecommendation = (item) => {
 };
 
 onMounted(loadReports);
+
+onUnmounted(() => {
+  if (latestCheckedAt.value) {
+    markSeen('reports', latestCheckedAt.value);
+  }
+});
 </script>
 
 <style scoped>
 .report-card {
+  position: relative;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -147,5 +163,20 @@ onMounted(loadReports);
   font-weight: 600;
   font-size: 0.9rem;
   text-align: right;
+}
+
+.report-new {
+  background: #fff1f2;
+}
+
+.card-dot {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 0 2px #fff1f2;
 }
 </style>

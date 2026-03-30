@@ -346,11 +346,23 @@ class DashboardStatsController extends Controller
     {
         $userId = Auth::id();
 
-        $examsTaken = DB::table('student_exam_schedules')
+        $takenExamIdsFromSchedules = DB::table('student_exam_schedules')
             ->where('user_id', $userId)
             ->whereIn('status', ['attended', 'missed'])
-            ->distinct('exam_id')
-            ->count('exam_id');
+            ->distinct()
+            ->pluck('exam_id');
+
+        $takenExamIdsFromSheets = DB::table('answer_sheets')
+            ->where('user_id', $userId)
+            ->whereIn('status', ['scanned', 'checked'])
+            ->distinct()
+            ->pluck('exam_id');
+
+        $examsTaken = $takenExamIdsFromSchedules
+            ->merge($takenExamIdsFromSheets)
+            ->filter()
+            ->unique()
+            ->count();
 
         $examsCompleted = DB::table('answer_sheets')
             ->where('user_id', $userId)

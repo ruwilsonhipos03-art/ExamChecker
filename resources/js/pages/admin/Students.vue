@@ -8,8 +8,8 @@
                         <p class="text-muted small mb-0">All registered students</p>
                     </div>
                     <button class="btn btn-success fw-bold px-4" :disabled="loading || filteredRows.length === 0"
-                        @click="downloadWord">
-                        <i class="bi bi-download me-2"></i>Download Word
+                        @click="downloadPdf">
+                        <i class="bi bi-download me-2"></i>Download PDF
                     </button>
                 </div>
             </div>
@@ -138,64 +138,131 @@ const loadStudents = async () => {
     }
 };
 
-const escapeHtml = (value) => {
+const escapePdfText = (value) => {
     return String(value ?? '')
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#039;');
+        .replaceAll('\\', '\\\\')
+        .replaceAll('(', '\\(')
+        .replaceAll(')', '\\)');
 };
 
-const downloadWord = () => {
+const formatPdfCell = (value, maxLength) => {
+    const text = String(value ?? '').replace(/\s+/g, ' ').trim();
+    if (text.length <= maxLength) {
+        return text;
+    }
+
+    return `${text.slice(0, Math.max(0, maxLength - 3))}...`;
+};
+
+const buildPdfBytes = (lines) => {
+    const objects = [];
+    const addObject = (content) => {
+        objects.push(content);
+        return objects.length;
+    };
+
+    const contentStream = lines.join('\n');
+    const fontId = addObject('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
+    const contentId = addObject(`<< /Length ${contentStream.length} >>\nstream\n${contentStream}\nendstream`);
+    const pageId = addObject(
+        `<< /Type /Page /Parent 4 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${contentId} 0 R >>`
+    );
+    const pagesId = addObject(`<< /Type /Pages /Kids [${pageId} 0 R] /Count 1 >>`);
+    const catalogId = addObject(`<< /Type /Catalog /Pages ${pagesId} 0 R >>`);
+
+    let pdf = '%PDF-1.4\n';
+    const offsets = [0];
+
+    objects.forEach((object, index) => {
+        offsets.push(pdf.length);
+        pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+    });
+
+    const xrefOffset = pdf.length;
+    pdf += `xref\n0 ${objects.length + 1}\n`;
+    pdf += '0000000000 65535 f \n';
+
+    offsets.slice(1).forEach((offset) => {
+        pdf += `${String(offset).padStart(10, '0')} 00000 n \n`;
+    });
+
+    pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+    return new TextEncoder().encode(pdf);
+};
+
+const drawPdfText = (lines, text, x, y, fontSize = 10) => {
+    lines.push('BT');
+    lines.push(`/F1 ${fontSize} Tf`);
+    lines.push('0 0 0 rg');
+    lines.push(`1 0 0 1 ${x} ${y} Tm`);
+    lines.push(`(${escapePdfText(text)}) Tj`);
+    lines.push('ET');
+};
+
+const downloadPdf = () => {
     if (loading.value || filteredRows.value.length === 0) {
         return;
     }
 
-    const tableRows = filteredRows.value.map((row, index) => `
-        <tr>
-            <td>${index + 1}</td>
-            <td>${escapeHtml(row.student_number || '-')}</td>
-            <td>${escapeHtml(row.full_name || '-')}</td>
-            <td>${escapeHtml(row.program_name || 'N/A')}</td>
-        </tr>
-    `).join('');
+    const textLines = [];
+    const tableX = 70;
+    const tableWidth = 470;
+    const headerTopY = 640;
+    const headerHeight = 24;
+    const rowHeight = 24;
+    const columns = [55, 145, 180, 90];
+    const title = 'Admin Students Report';
+    const titleX = 202;
+    const titleY = 700;
 
-    const html = `
-        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">
-            <head>
-                <meta charset="UTF-8" />
-                <title>Admin Students Report</title>
-                <style>
-                    body { font-family: Arial, sans-serif; padding: 20px; }
-                    h2 { margin: 0 0 12px; text-align: center; }
-                    table { border-collapse: collapse; width: 100%; font-size: 13px; }
-                    th, td { border: 1px solid #cbd5e1; padding: 7px 8px; }
-                    th { background: #e2e8f0; text-align: left; }
-                </style>
-            </head>
-            <body>
-                <h2>Admin Students Report</h2>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>No.</th>
-                            <th>Student #</th>
-                            <th>Full Name</th>
-                            <th>Program</th>
-                        </tr>
-                    </thead>
-                    <tbody>${tableRows}</tbody>
-                </table>
-            </body>
-        </html>
-    `;
+    drawPdfText(textLines, title, titleX, titleY, 18);
 
-    const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+    const totalRows = filteredRows.value.length;
+    const tableHeight = headerHeight + (totalRows * rowHeight);
+    const tableBottomY = headerTopY - tableHeight;
+    const columnEdges = [tableX];
+
+    columns.forEach((width) => {
+        columnEdges.push(columnEdges[columnEdges.length - 1] + width);
+    });
+
+    textLines.push('0.86 0.89 0.93 rg');
+    textLines.push(`${tableX} ${headerTopY - headerHeight} ${tableWidth} ${headerHeight} re f`);
+
+    textLines.push('0.75 0.78 0.82 RG');
+    textLines.push('0.8 w');
+    textLines.push(`${tableX} ${tableBottomY} ${tableWidth} ${tableHeight} re S`);
+
+    for (let i = 1; i < columnEdges.length - 1; i += 1) {
+        const x = columnEdges[i];
+        textLines.push(`${x} ${tableBottomY} m ${x} ${headerTopY} l S`);
+    }
+
+    for (let i = 1; i <= totalRows; i += 1) {
+        const y = headerTopY - headerHeight - (i * rowHeight);
+        textLines.push(`${tableX} ${y} m ${tableX + tableWidth} ${y} l S`);
+    }
+
+    drawPdfText(textLines, 'No.', tableX + 8, headerTopY - 16, 10);
+    drawPdfText(textLines, 'Student #', columnEdges[1] + 8, headerTopY - 16, 10);
+    drawPdfText(textLines, 'Full Name', columnEdges[2] + 8, headerTopY - 16, 10);
+    drawPdfText(textLines, 'Program', columnEdges[3] + 8, headerTopY - 16, 10);
+
+    filteredRows.value.forEach((row, index) => {
+        const textY = headerTopY - headerHeight - (index * rowHeight) - 16;
+        drawPdfText(textLines, formatPdfCell(index + 1, 3), tableX + 8, textY, 10);
+        drawPdfText(textLines, formatPdfCell(row.student_number || '-', 18), columnEdges[1] + 8, textY, 10);
+        drawPdfText(textLines, formatPdfCell(row.full_name || '-', 24), columnEdges[2] + 8, textY, 10);
+        drawPdfText(textLines, formatPdfCell(row.program_name || 'N/A', 12), columnEdges[3] + 8, textY, 10);
+    });
+
+    const pdfBytes = buildPdfBytes(textLines);
+    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'Admin_Students_Report.doc';
+    link.download = 'Student_List.pdf';
     document.body.appendChild(link);
     link.click();
     link.remove();

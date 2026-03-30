@@ -1,0 +1,1 @@
+import{_ as e}from"./ItemAnalysisTable-7hGqDghB.js";import{H as a,o as s}from"./app-BsdkYl-H.js";const c={__name:"Analysis",setup(t){return(o,r)=>(s(),a(e,{title:"Term Exam Item Analysis","exam-type-scope":"all"}))}};export{c as default};

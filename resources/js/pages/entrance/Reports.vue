@@ -81,6 +81,7 @@
               v-for="(row, index) in filteredRows"
               :key="row.answer_sheet_id"
               class="clickable-row"
+              :class="{ 'row-new': isRowNew('reports', row.checked_at) }"
               @click="openStudentAnswers(row)"
             >
               <td>{{ index + 1 }}</td>
@@ -88,10 +89,11 @@
               <td>{{ row.exam_name }}</td>
               <td class="text-end fw-bold">{{ row.score ?? row.total }}</td>
               <td class="text-end">{{ row.items ?? 100 }}</td>
-              <td>
+              <td class="position-relative">
                 <span class="badge" :class="row.total >= 75 ? 'text-bg-success' : 'text-bg-danger'">
                   {{ row.total >= 75 ? 'Passed' : 'Failed' }}
                 </span>
+                <span v-if="isRowNew('reports', row.checked_at)" class="row-dot" aria-hidden="true"></span>
               </td>
             </tr>
           </tbody>
@@ -127,8 +129,9 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import axios from 'axios';
+import { useNotifications } from '../../composables/useNotifications';
 
 const loading = ref(false);
 const rows = ref([]);
@@ -137,6 +140,8 @@ const detailLoading = ref(false);
 const detailError = ref('');
 const selectedStudent = ref(null);
 const detailItems = ref([]);
+const latestCheckedAt = ref(null);
+const { isRowNew, markSeen } = useNotifications({ poll: false });
 
 const filters = ref({
   examTitle: '',
@@ -183,6 +188,11 @@ const loadReports = async () => {
   try {
     const { data } = await axios.get('/api/entrance/reports/examinee-results');
     rows.value = Array.isArray(data?.data) ? data.data : [];
+    latestCheckedAt.value = rows.value
+      .map((row) => row.checked_at)
+      .filter(Boolean)
+      .sort()
+      .slice(-1)[0] || null;
   } catch (error) {
     rows.value = [];
   } finally {
@@ -298,6 +308,12 @@ const escapeHtml = (value) => {
 };
 
 onMounted(loadReports);
+
+onUnmounted(() => {
+  if (latestCheckedAt.value) {
+    markSeen('reports', latestCheckedAt.value);
+  }
+});
 </script>
 
 <style scoped>
@@ -337,5 +353,20 @@ onMounted(loadReports);
   border-radius: 10px;
   padding: 10px;
   text-align: center;
+}
+
+.row-new {
+  background: #fff1f2;
+}
+
+.row-dot {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 0 2px #fff1f2;
 }
 </style>

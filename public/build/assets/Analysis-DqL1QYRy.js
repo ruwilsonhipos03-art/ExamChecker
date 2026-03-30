@@ -1,0 +1,1 @@
+import{_ as a}from"./ItemAnalysisTable-7hGqDghB.js";import{H as e,o as t}from"./app-BsdkYl-H.js";const _={__name:"Analysis",setup(s){return(o,r)=>(t(),e(a,{title:"Entrance Exam Item Analysis","exam-type-scope":"all"}))}};export{_ as default};

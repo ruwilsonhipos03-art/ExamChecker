@@ -285,6 +285,80 @@ class AuthController extends Controller
         ]);
     }
 
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+
+        $rules = [];
+        if ($user->role === 'admin') {
+            $rules = [
+                'first_name' => 'required|string|max:255',
+                'middle_initial' => 'nullable|string|max:5',
+                'last_name' => 'required|string|max:255',
+                'extension_name' => 'nullable|string|max:20',
+            ];
+        }
+
+        if (empty($rules)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No profile fields are available to update for this account.'
+            ], 403);
+        }
+
+        $validated = $request->validate($rules);
+
+        $user->fill([
+            'first_name' => $validated['first_name'],
+            'middle_initial' => $validated['middle_initial'] ?? null,
+            'last_name' => $validated['last_name'],
+            'extension_name' => $validated['extension_name'] ?? null,
+        ]);
+        $user->save();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Profile updated successfully.',
+            'user' => [
+                'id' => $user->id,
+                'first_name' => $user->first_name,
+                'middle_initial' => $user->middle_initial,
+                'last_name' => $user->last_name,
+                'extension_name' => $user->extension_name,
+                'username' => $user->username,
+                'email' => $user->email,
+                'role' => $user->role,
+                'employee_id' => $user->employee_id,
+                'email_verified_at' => $user->email_verified_at,
+            ]
+        ]);
+    }
+
+    public function changePassword(Request $request)
+    {
+        $validated = $request->validate([
+            'current_password' => 'required|string',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $user = $request->user();
+
+        if (!Hash::check($validated['current_password'], $user->password)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Your current password is incorrect.'
+            ], 422);
+        }
+
+        $user->password = Hash::make($validated['password']);
+        $user->save();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Password changed successfully.'
+        ]);
+    }
+
     public function sendForgotPasswordCode(Request $request)
     {
         $validated = $request->validate([

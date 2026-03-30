@@ -65,11 +65,13 @@ class CollegeDeanManagementController extends Controller
             ->join('students as s', 's.user_id', '=', 'u.id')
             ->leftJoin('programs as p', 'p.id', '=', 's.program_id')
             ->leftJoin($orgUnitTable . ' as d', 'd.id', '=', 'p.' . $programOrgUnitColumn)
+            ->leftJoin('subject_student_assignments as ssa', 'ssa.student_user_id', '=', 'u.id')
+            ->leftJoin('subjects as subj', 'subj.id', '=', 'ssa.subject_id')
             ->where('u.role', 'student')
             ->where('p.' . $programOrgUnitColumn, $departmentId)
             ->orderBy('u.last_name')
             ->orderBy('u.first_name')
-            ->select([
+            ->groupBy(
                 'u.id',
                 'u.first_name',
                 'u.middle_initial',
@@ -78,10 +80,24 @@ class CollegeDeanManagementController extends Controller
                 'u.username',
                 'u.email',
                 's.Student_Number',
-                'p.id as program_id',
-                'p.Program_Name as program_name',
-                DB::raw('d.' . $orgUnitNameColumn . ' as College_Name'),
-            ])
+                'p.id',
+                'p.Program_Name',
+                DB::raw('d.' . $orgUnitNameColumn)
+            )
+            ->selectRaw('
+                u.id,
+                u.first_name,
+                u.middle_initial,
+                u.last_name,
+                u.extension_name,
+                u.username,
+                u.email,
+                s.Student_Number,
+                p.id as program_id,
+                p.Program_Name as program_name,
+                d.' . $orgUnitNameColumn . ' as College_Name,
+                GROUP_CONCAT(DISTINCT subj.Subject_Name SEPARATOR \', \') as subject_names
+            ')
             ->get();
 
         return response()->json([
@@ -100,6 +116,7 @@ class CollegeDeanManagementController extends Controller
                 'program_id' => (int) ($row->program_id ?? 0),
                 'program_name' => (string) ($row->program_name ?? ''),
                 'College_Name' => (string) ($row->College_Name ?? ''),
+                'subject_names' => (string) ($row->subject_names ?? ''),
             ])->values(),
         ]);
     }

@@ -37,7 +37,13 @@
 
         <div class="row g-4 mb-4">
             <div class="col-md-3" v-for="(stat, index) in stats" :key="index">
-                <div class="card border-0 shadow-sm p-4 rounded-4 stat-card h-100 bg-white">
+                <button
+                    type="button"
+                    class="card border-0 shadow-sm p-4 rounded-4 stat-card h-100 bg-white text-start"
+                    :class="{ 'stat-clickable': Boolean(stat.route) }"
+                    :disabled="!stat.route"
+                    @click="goToStat(stat)"
+                >
                     <div class="d-flex align-items-center gap-3 mb-3">
                         <div :class="['stat-icon', stat.colorClass]">
                             <i :class="stat.icon"></i>
@@ -45,7 +51,7 @@
                     </div>
                     <div class="stat-value h2 fw-bold mb-1">{{ stat.value }}</div>
                     <div class="stat-label text-muted fw-medium">{{ stat.label }}</div>
-                </div>
+                </button>
             </div>
         </div>
 
@@ -89,10 +95,10 @@ const activities = ref([]);
 let statsRefreshTimer = null;
 
 const stats = ref([
-    { label: 'Exams Created', value: '0', icon: 'bi-file-earmark-plus-fill', colorClass: 'bg-emerald-light text-emerald' },
-    { label: 'Total Examinees', value: '0', icon: 'bi-people-fill', colorClass: 'bg-emerald-light text-emerald' },
-    { label: 'Subjects', value: '0', icon: 'bi-book-fill', colorClass: 'bg-info-subtle text-info' },
-    { label: 'Passing Rate', value: '0%', icon: 'bi-graph-up-arrow', colorClass: 'bg-warning-subtle text-warning' }
+    { key: 'exams_created', label: 'Exams Created', value: '0', icon: 'bi-file-earmark-plus-fill', colorClass: 'bg-emerald-light text-emerald', route: '' },
+    { key: 'total_examinees', label: 'Total Examinees', value: '0', icon: 'bi-people-fill', colorClass: 'bg-emerald-light text-emerald', route: '/college-dean/students' },
+    { key: 'subjects', label: 'Subjects', value: '0', icon: 'bi-book-fill', colorClass: 'bg-info-subtle text-info', route: '/college-dean/subjects' },
+    { key: 'passing_rate', label: 'Passing Rate', value: '0%', icon: 'bi-graph-up-arrow', colorClass: 'bg-warning-subtle text-warning', route: '/college-dean/normal/reports' }
 ]);
 
 const prettyRole = (role) => {
@@ -124,15 +130,31 @@ const goToReports = () => {
     router.push('/college-dean/reports');
 };
 
+const goToStat = (stat) => {
+    if (!stat?.route) return;
+    router.push(stat.route);
+};
+
 const loadStats = async () => {
     try {
         const { data } = await axios.get('/api/college_dean/dashboard/stats');
-        stats.value = [
-            { label: 'Exams Created', value: Number(data.exams_created || 0).toLocaleString(), icon: 'bi-file-earmark-plus-fill', colorClass: 'bg-emerald-light text-emerald' },
-            { label: 'Total Examinees', value: Number(data.total_examinees || 0).toLocaleString(), icon: 'bi-people-fill', colorClass: 'bg-emerald-light text-emerald' },
-            { label: 'Subjects', value: Number(data.subjects || 0).toLocaleString(), icon: 'bi-book-fill', colorClass: 'bg-info-subtle text-info' },
-            { label: 'Passing Rate', value: `${Number(data.passing_rate || 0).toFixed(2)}%`, icon: 'bi-graph-up-arrow', colorClass: 'bg-warning-subtle text-warning' }
-        ];
+        stats.value.forEach((stat) => {
+            if (stat.key === 'exams_created') {
+                stat.value = Number(data.exams_created || 0).toLocaleString();
+                return;
+            }
+            if (stat.key === 'total_examinees') {
+                stat.value = Number(data.total_examinees || 0).toLocaleString();
+                return;
+            }
+            if (stat.key === 'subjects') {
+                stat.value = Number(data.subjects || 0).toLocaleString();
+                return;
+            }
+            if (stat.key === 'passing_rate') {
+                stat.value = `${Number(data.passing_rate || 0).toFixed(2)}%`;
+            }
+        });
         activities.value = Array.isArray(data?.recent_activities) ? data.recent_activities : [];
     } catch (error) {
         Swal.fire({
@@ -264,10 +286,31 @@ onBeforeUnmount(() => {
 /* Dashboard Card Animations */
 .stat-card {
     transition: transform 0.2s ease-in-out;
+    box-shadow: 0 0.75rem 1.5rem rgba(15, 23, 42, 0.08) !important;
 }
 
 .stat-card:hover {
     transform: translateY(-5px);
+}
+
+.stat-clickable {
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    display: block;
+    width: 100%;
+    margin: 0;
+    font: inherit;
+    line-height: inherit;
+}
+
+.stat-clickable::-moz-focus-inner {
+    border: 0;
+    padding: 0;
+}
+
+.stat-clickable:disabled {
+    cursor: default;
 }
 
 .stat-icon {

@@ -14,12 +14,40 @@
     <div class="card border-0 shadow-sm rounded-4">
       <div class="card-body p-0">
         <div class="p-3 border-bottom">
-          <input
-            v-model="search"
-            type="text"
-            class="form-control form-control-sm"
-            placeholder="Search by student name, number, program, or subject"
-          >
+          <div class="row g-2">
+            <div class="col-12 col-md-4">
+              <input
+                v-model="search"
+                type="text"
+                class="form-control form-control-sm"
+                placeholder="Search by student name or number"
+              >
+            </div>
+            <div class="col-12 col-md-3">
+              <select v-model="programFilter" class="form-select form-select-sm">
+                <option value="">All Programs</option>
+                <option v-for="name in programOptions" :key="name" :value="name">{{ name }}</option>
+              </select>
+            </div>
+            <div v-if="hasSubjectOptions" class="col-12 col-md-3">
+              <select v-model="subjectFilter" class="form-select form-select-sm">
+                <option value="">All Subjects</option>
+                <option v-for="name in subjectOptions" :key="name" :value="name">{{ name }}</option>
+              </select>
+            </div>
+            <div class="col-6 col-md-2">
+              <select v-model="sortKey" class="form-select form-select-sm">
+                <option value="full_name">Name</option>
+                <option value="student_number">Student #</option>
+              </select>
+            </div>
+            <div class="col-6 col-md-1">
+              <select v-model="sortDirection" class="form-select form-select-sm">
+                <option value="asc">Asc</option>
+                <option value="desc">Desc</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         <div class="table-responsive">
@@ -60,23 +88,72 @@ import axios from 'axios';
 const students = ref([]);
 const loading = ref(false);
 const search = ref('');
+const programFilter = ref('');
+const subjectFilter = ref('');
+const sortKey = ref('full_name');
+const sortDirection = ref('asc');
+
+const programOptions = computed(() => {
+  const values = students.value
+    .map((row) => String(row.program_name || '').trim())
+    .filter(Boolean);
+  return [...new Set(values)].sort((a, b) => a.localeCompare(b));
+});
+
+const subjectOptions = computed(() => {
+  const values = students.value
+    .flatMap((row) => String(row.subject_names || '')
+      .split(',')
+      .map((name) => name.trim())
+      .filter(Boolean));
+  return [...new Set(values)].sort((a, b) => a.localeCompare(b));
+});
+
+const hasSubjectOptions = computed(() => subjectOptions.value.length > 1);
 
 const filteredStudents = computed(() => {
   const q = search.value.trim().toLowerCase();
-  if (!q) return students.value;
+  const program = programFilter.value;
+  const subject = subjectFilter.value;
+  let rows = [...students.value];
 
-  return students.value.filter((s) => {
-    const haystack = [
-      s.student_number,
-      s.full_name,
-      s.program_name,
-      s.subject_names,
-    ]
-      .map((item) => String(item || '').toLowerCase())
-      .join(' ');
+  if (program) {
+    rows = rows.filter((row) => String(row.program_name || '') === program);
+  }
 
-    return haystack.includes(q);
+  if (subject) {
+    rows = rows.filter((row) =>
+      String(row.subject_names || '')
+        .split(',')
+        .map((name) => name.trim())
+        .includes(subject)
+    );
+  }
+
+  if (q) {
+    rows = rows.filter((s) => {
+      const haystack = [
+        s.student_number,
+        s.full_name,
+        s.program_name,
+        s.subject_names,
+      ]
+        .map((item) => String(item || '').toLowerCase())
+        .join(' ');
+
+      return haystack.includes(q);
+    });
+  }
+
+  const direction = sortDirection.value === 'desc' ? -1 : 1;
+  const key = sortKey.value;
+  rows.sort((a, b) => {
+    const first = String(a?.[key] || '');
+    const second = String(b?.[key] || '');
+    return first.localeCompare(second, undefined, { sensitivity: 'base' }) * direction;
   });
+
+  return rows;
 });
 
 const loadStudents = async () => {

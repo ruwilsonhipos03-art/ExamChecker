@@ -53,7 +53,12 @@
                     <router-link to="/college-dean/entrance/generate" class="sub-item">
                         <i class="bi bi-file-earmark-plus-fill"></i> Generate Sheet
                     </router-link>
-                    <router-link to="/college-dean/entrance/reports" class="sub-item">
+                    <router-link
+                        to="/college-dean/entrance/reports"
+                        class="sub-item"
+                        :class="{ 'has-dot': hasDot('reports') && !reportsActive }"
+                        @click="handleNavClick('reports')"
+                    >
                         <i class="bi bi-file-bar-graph-fill"></i> Reports
                     </router-link>
                     <router-link to="/college-dean/entrance/analysis" class="sub-item">
@@ -83,7 +88,12 @@
                     <router-link to="/college-dean/normal/generate" class="sub-item">
                         <i class="bi bi-file-earmark-plus-fill"></i> Generate Sheet
                     </router-link>
-                    <router-link to="/college-dean/normal/reports" class="sub-item">
+                    <router-link
+                        to="/college-dean/normal/reports"
+                        class="sub-item"
+                        :class="{ 'has-dot': hasDot('reports') && !reportsActive }"
+                        @click="handleNavClick('reports')"
+                    >
                         <i class="bi bi-file-bar-graph-fill"></i> Reports
                     </router-link>
                     <router-link to="/college-dean/normal/analysis" class="sub-item">
@@ -96,11 +106,30 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
+import { useNotifications } from '../../composables/useNotifications';
 defineProps(['isCollapsed']);
 
+const route = useRoute();
 const isEntranceOpen = ref(false);
 const isNormalOpen = ref(false);
+const { hasDot, markSeen, summary } = useNotifications();
+const reportsActive = computed(() => ['/college-dean/entrance/reports', '/college-dean/normal/reports'].includes(route.path));
+
+const handleNavClick = (tabKey) => {
+    const latest = summary.value?.tabs?.[tabKey]?.latest_at || null;
+    markSeen(tabKey, latest || new Date().toISOString());
+};
+
+watch(
+    [reportsActive, () => summary.value?.tabs?.reports?.latest_at || null],
+    ([isActive, latest]) => {
+        if (!isActive) return;
+        markSeen('reports', latest || new Date().toISOString());
+    },
+    { immediate: true }
+);
 
 const toggleEntrance = () => {
     isEntranceOpen.value = !isEntranceOpen.value;
@@ -186,6 +215,7 @@ const toggleNormal = () => {
     font-size: 0.9rem;
     border-radius: 8px;
     transition: 0.2s;
+    position: relative;
 }
 
 .sub-item i {
@@ -209,5 +239,17 @@ const toggleNormal = () => {
     font-weight: 600;
     margin: 20px 0 10px 10px;
     letter-spacing: 1px;
+}
+
+.sub-item.has-dot::after {
+    content: '';
+    position: absolute;
+    top: 6px;
+    right: 12px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ef4444;
+    box-shadow: 0 0 0 2px var(--sidebar-bg);
 }
 </style>

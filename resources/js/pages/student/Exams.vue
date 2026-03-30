@@ -56,13 +56,16 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 import axios from 'axios';
+import { useNotifications } from '../../composables/useNotifications';
 
 const exams = ref([]);
 const selectedPrograms = ref([]);
 const isLoading = ref(true);
 const errorMessage = ref('');
+const latestExamUpdate = ref(null);
+const { markSeen } = useNotifications({ poll: false });
 
 const loadExams = async () => {
   isLoading.value = true;
@@ -75,6 +78,11 @@ const loadExams = async () => {
     ]);
 
     exams.value = Array.isArray(sheetsData) ? sheetsData : [];
+    latestExamUpdate.value = exams.value
+      .map((sheet) => sheet.updated_at)
+      .filter(Boolean)
+      .sort()
+      .slice(-1)[0] || null;
 
     const payload = recommendationData?.data || {};
     const programs = Array.isArray(payload.programs) ? payload.programs : [];
@@ -168,6 +176,12 @@ const screeningProgramName = (sheet) => {
 };
 
 onMounted(loadExams);
+
+onUnmounted(() => {
+  if (latestExamUpdate.value) {
+    markSeen('exams', latestExamUpdate.value);
+  }
+});
 </script>
 
 <style scoped>

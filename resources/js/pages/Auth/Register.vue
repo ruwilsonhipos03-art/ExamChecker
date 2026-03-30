@@ -9,46 +9,61 @@
 
                 <form @submit.prevent="handleRegister">
                     <div class="row g-2 mb-3">
-                        <div class="col-md-3">
-                            <label class="form-label small fw-bold text-secondary">FIRST NAME</label>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-secondary">
+                                FIRST NAME <span class="required-asterisk">*</span>
+                            </label>
                             <input v-model="form.first_name" type="text" class="form-control" required
                                 :disabled="loading">
                         </div>
-                        <div class="col-md-2">
-                            <label class="form-label small fw-bold text-secondary text-nowrap">M.I.</label>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-secondary">MIDDLE INITIAL</label>
                             <input v-model="form.middle_name" type="text" class="form-control" maxlength="2"
                                 :disabled="loading">
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label small fw-bold text-secondary">LAST NAME</label>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-secondary">
+                                LAST NAME <span class="required-asterisk">*</span>
+                            </label>
                             <input v-model="form.last_name" type="text" class="form-control" required
                                 :disabled="loading">
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label small fw-bold text-secondary">SUFFIX</label>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-secondary">EXTENSION NAME</label>
                             <input v-model="form.extension_name" type="text" class="form-control" placeholder="Jr."
                                 :disabled="loading">
                         </div>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-bold text-secondary">EMAIL ADDRESS</label>
+                        <label class="form-label small fw-bold text-secondary">
+                            EMAIL ADDRESS <span class="required-asterisk">*</span>
+                        </label>
                         <input v-model="form.email" type="email" class="form-control" required :disabled="loading">
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-bold text-secondary">USERNAME</label>
+                        <label class="form-label small fw-bold text-secondary">
+                            USERNAME <span class="required-asterisk">*</span>
+                        </label>
                         <input v-model="form.username" type="text" class="form-control" required :disabled="loading">
                     </div>
 
                     <div class="row g-2 mb-4">
                         <div class="col-md-6">
-                            <label class="form-label small fw-bold text-secondary">PASSWORD</label>
+                            <label class="form-label small fw-bold text-secondary">
+                                PASSWORD <span class="required-asterisk">*</span>
+                            </label>
                             <input v-model="form.password" type="password" class="form-control" required
                                 :disabled="loading">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small fw-bold text-secondary">CONFIRM PASSWORD</label>
+                            <label class="form-label small fw-bold text-secondary">
+                                CONFIRM PASSWORD <span class="required-asterisk">*</span>
+                            </label>
                             <input v-model="form.password_confirmation" type="password" class="form-control" required
                                 :disabled="loading">
                         </div>
@@ -186,5 +201,9 @@ const handleRegister = async () => {
 
 .text-nowrap {
     white-space: nowrap;
+}
+
+.required-asterisk {
+    color: #ef4444;
 }
 </style>
