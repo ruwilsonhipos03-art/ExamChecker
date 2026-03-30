@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AnswerKeyController;
 use App\Http\Controllers\Api\AnswerSheetController;
 use App\Http\Controllers\Api\DashboardStatsController;
 use App\Http\Controllers\Api\ExamController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\Admin\CollegeController;
 use App\Http\Controllers\Api\Admin\EmployeeController;
@@ -13,6 +14,7 @@ use App\Http\Controllers\Api\Admin\OfficeController;
 use App\Http\Controllers\Api\Admin\ProgramController;
 use App\Http\Controllers\Api\Admin\ProgramRequirementController;
 use App\Http\Controllers\Api\Admin\SubjectController;
+use App\Http\Controllers\Api\Admin\UserManagementController;
 use App\Http\Controllers\Api\CollegeDean\CollegeDeanManagementController;
 use App\Http\Controllers\Api\EntranceExaminer\ExamSubjectController;
 use App\Http\Controllers\Api\EntranceExaminer\OmrScanController;
@@ -42,7 +44,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/email-verification/send', [AuthController::class, 'sendEmailVerificationCode']);
     Route::post('/email-verification/verify', [AuthController::class, 'verifyEmailCode']);
+    Route::put('/profile', [AuthController::class, 'updateProfile']);
     Route::put('/profile/email', [AuthController::class, 'updateEmail']);
+    Route::put('/profile/password', [AuthController::class, 'changePassword']);
+    Route::get('/notifications/summary', [NotificationController::class, 'summary']);
 
     // General Resources
     Route::apiResource('exams', ExamController::class);
@@ -63,6 +68,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('reports/all-users', [ReportController::class, 'index']);
         Route::get('activities', [ReportController::class, 'adminActivities']);
         Route::get('students', [ReportController::class, 'adminStudents']);
+        Route::get('exam-reports', [ReportController::class, 'adminExamReports']);
+        Route::get('users', [UserManagementController::class, 'index']);
         Route::get('dashboard/stats', [DashboardStatsController::class, 'admin']);
 
         Route::apiResource('subjects', SubjectController::class);

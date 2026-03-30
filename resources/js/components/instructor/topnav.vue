@@ -31,8 +31,16 @@
                         {{ formatRole(user.role) }}
                     </div>
                 </li>
-                <li><a class="dropdown-item py-2" href="#"><i class="bi bi-person me-2"></i> Profile</a></li>
-                <li><a class="dropdown-item py-2" href="#"><i class="bi bi-gear me-2"></i> Settings</a></li>
+                <li>
+                    <router-link class="dropdown-item py-2" :to="`${baseRoute}/profile`">
+                        <i class="bi bi-person me-2"></i> Profile
+                    </router-link>
+                </li>
+                <li>
+                    <router-link class="dropdown-item py-2" :to="`${baseRoute}/settings`">
+                        <i class="bi bi-gear me-2"></i> Settings
+                    </router-link>
+                </li>
                 <li>
                     <hr class="dropdown-divider">
                 </li>
@@ -70,6 +78,18 @@ const userInitials = computed(() => {
     const f = user.value.first_name ? user.value.first_name.charAt(0) : '';
     const l = user.value.last_name ? user.value.last_name.charAt(0) : '';
     return (f + l).toUpperCase() || '??';
+});
+
+const baseRoute = computed(() => {
+    const routes = {
+        admin: '/admin',
+        college_dean: '/college-dean',
+        entrance_examiner: '/entrance',
+        instructor: '/instructor',
+        student: '/student'
+    };
+
+    return routes[user.value.role] || '/login';
 });
 
 // Format role for display (e.g., 'instructor' -> 'Instructor')

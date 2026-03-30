@@ -1,0 +1,1 @@
+import{_ as o,c as r,f as t,h as s,o as c}from"./app-kEqqnUnW.js";const n={},a={class:"master-wrapper"};function _(m,p){const e=s("router-view");return c(),r("div",a,[t(e)])}const i=o(n,[["render",_]]);export{i as default};

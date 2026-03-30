@@ -25,6 +25,7 @@ class StudentScheduleController extends Controller
             ->select([
                 'ses.id',
                 'ses.status as schedule_status',
+                'ses.updated_at as assigned_at',
                 'e.Exam_Title as exam_title',
                 'e.Exam_Type as exam_type',
                 'sch.date as scheduled_date',

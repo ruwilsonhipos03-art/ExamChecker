@@ -85,13 +85,17 @@
                             v-for="(row, index) in filteredRows"
                             :key="row.answer_sheet_id"
                             class="clickable-row"
+                            :class="{ 'row-new': isRowNew('reports', row.checked_at) }"
                             @click="openStudentAnswers(row)"
                         >
                             <td>{{ index + 1 }}</td>
                             <td class="fw-semibold">{{ row.student_full_name }}</td>
                             <td>{{ row.exam_name }}</td>
                             <td class="text-end">{{ row.score }}</td>
-                            <td class="text-end fw-bold">{{ row.items }}</td>
+                            <td class="text-end fw-bold position-relative">
+                                {{ row.items }}
+                                <span v-if="isRowNew('reports', row.checked_at)" class="row-dot" aria-hidden="true"></span>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -126,8 +130,9 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import axios from 'axios';
+import { useNotifications } from '../../../composables/useNotifications';
 
 const loading = ref(false);
 const rows = ref([]);
@@ -137,6 +142,8 @@ const detailLoading = ref(false);
 const detailError = ref('');
 const selectedStudent = ref(null);
 const detailItems = ref([]);
+const latestCheckedAt = ref(null);
+const { isRowNew, markSeen } = useNotifications({ poll: false });
 
 const filters = ref({
     examTitle: '',
@@ -304,6 +311,11 @@ const loadReports = async () => {
                 score: Number(row.total ?? row.score ?? 0),
                 items: Number(row.items ?? row.total_items ?? 100),
             }));
+        latestCheckedAt.value = rows.value
+            .map((row) => row.checked_at)
+            .filter(Boolean)
+            .sort()
+            .slice(-1)[0] || null;
     } catch (error) {
         rows.value = [];
         window.Swal?.fire({
@@ -352,6 +364,12 @@ const closeStudentAnswers = () => {
 };
 
 onMounted(loadReports);
+
+onUnmounted(() => {
+    if (latestCheckedAt.value) {
+        markSeen('reports', latestCheckedAt.value);
+    }
+});
 </script>
 
 <style scoped>
@@ -391,6 +409,21 @@ onMounted(loadReports);
     border-radius: 10px;
     padding: 10px;
     text-align: center;
+}
+
+.row-new {
+    background: #fff1f2;
+}
+
+.row-dot {
+    position: absolute;
+    top: 6px;
+    right: 10px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ef4444;
+    box-shadow: 0 0 0 2px #fff1f2;
 }
 
 .print-only {

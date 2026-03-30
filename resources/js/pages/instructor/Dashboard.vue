@@ -54,7 +54,13 @@
 
         <div class="row g-4 mb-4">
             <div class="col-md-4" v-for="(stat, index) in stats" :key="index">
-                <div class="card border-0 shadow-sm p-4 rounded-4 stat-card h-100 bg-white">
+                <button
+                    type="button"
+                    class="card border-0 shadow-sm p-4 rounded-4 stat-card h-100 bg-white text-start"
+                    :class="{ 'stat-clickable': Boolean(stat.route) }"
+                    :disabled="!stat.route"
+                    @click="goToStat(stat)"
+                >
                     <div class="d-flex align-items-center gap-3 mb-3">
                         <div :class="['stat-icon', stat.colorClass]">
                             <i :class="stat.icon"></i>
@@ -62,7 +68,7 @@
                     </div>
                     <div class="stat-value h2 fw-bold mb-1">{{ stat.value }}</div>
                     <div class="stat-label text-muted fw-medium">{{ stat.label }}</div>
-                </div>
+                </button>
             </div>
         </div>
 
@@ -103,9 +109,9 @@ const router = useRouter();
 let statsRefreshTimer = null;
 
 const stats = ref([
-    { label: 'Total Students', value: '0', icon: 'bi-people-fill', colorClass: 'bg-emerald-light text-emerald' },
-    { label: 'Subjects', value: '0', icon: 'bi-book-fill', colorClass: 'bg-info-subtle text-info' },
-    { label: 'Passing Rate', value: '0%', icon: 'bi-graph-up-arrow', colorClass: 'bg-emerald-light text-emerald' }
+    { key: 'total_students', label: 'Total Students', value: '0', icon: 'bi-people-fill', colorClass: 'bg-emerald-light text-emerald', route: '/instructor/students' },
+    { key: 'subjects', label: 'Subjects', value: '0', icon: 'bi-book-fill', colorClass: 'bg-info-subtle text-info', route: '/instructor/subjects' },
+    { key: 'passing_rate', label: 'Passing Rate', value: '0%', icon: 'bi-graph-up-arrow', colorClass: 'bg-emerald-light text-emerald', route: '/instructor/reports' }
 ]);
 
 const activities = ref([]);
@@ -120,11 +126,19 @@ const formatActivityTime = (value) => {
 const loadStats = async () => {
     try {
         const { data } = await axios.get('/api/instructor/dashboard/stats');
-        stats.value = [
-            { label: 'Total Students', value: Number(data.total_students || 0).toLocaleString(), icon: 'bi-people-fill', colorClass: 'bg-emerald-light text-emerald' },
-            { label: 'Subjects', value: Number(data.subjects || 0).toLocaleString(), icon: 'bi-book-fill', colorClass: 'bg-info-subtle text-info' },
-            { label: 'Passing Rate', value: `${Number(data.passing_rate || 0).toFixed(2)}%`, icon: 'bi-graph-up-arrow', colorClass: 'bg-emerald-light text-emerald' }
-        ];
+        stats.value.forEach((stat) => {
+            if (stat.key === 'total_students') {
+                stat.value = Number(data.total_students || 0).toLocaleString();
+                return;
+            }
+            if (stat.key === 'subjects') {
+                stat.value = Number(data.subjects || 0).toLocaleString();
+                return;
+            }
+            if (stat.key === 'passing_rate') {
+                stat.value = `${Number(data.passing_rate || 0).toFixed(2)}%`;
+            }
+        });
         const recent = Array.isArray(data?.recent_activities) ? data.recent_activities : [];
         const extractSubjectName = (value) => {
             if (!value) return '';
@@ -163,6 +177,11 @@ const loadStats = async () => {
             confirmButtonColor: '#ef4444'
         });
     }
+};
+
+const goToStat = (stat) => {
+    if (!stat?.route) return;
+    router.push(stat.route);
 };
 
 const openScanPicker = async () => {
@@ -287,10 +306,31 @@ onBeforeUnmount(() => {
 /* Dashboard Card Animations */
 .stat-card {
     transition: transform 0.2s ease-in-out;
+    box-shadow: 0 0.75rem 1.5rem rgba(15, 23, 42, 0.08) !important;
 }
 
 .stat-card:hover {
     transform: translateY(-5px);
+}
+
+.stat-clickable {
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    display: block;
+    width: 100%;
+    margin: 0;
+    font: inherit;
+    line-height: inherit;
+}
+
+.stat-clickable::-moz-focus-inner {
+    border: 0;
+    padding: 0;
+}
+
+.stat-clickable:disabled {
+    cursor: default;
 }
 
 .stat-icon {

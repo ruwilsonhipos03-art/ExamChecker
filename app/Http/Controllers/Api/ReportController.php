@@ -187,6 +187,70 @@ class ReportController extends Controller
         ]);
     }
 
+    public function adminExamReports(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user || !$this->hasAnyRole($user->role, ['admin'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only administrators can access this report.',
+            ], 403);
+        }
+
+        $rows = DB::table('exams as e')
+            ->leftJoin('programs as p', 'p.id', '=', 'e.program_id')
+            ->leftJoin('employees as emp', 'emp.id', '=', 'e.created_by')
+            ->leftJoin('users as creator_user', 'creator_user.id', '=', 'emp.user_id')
+            ->leftJoin('users as legacy_user', 'legacy_user.id', '=', 'e.created_by')
+            ->selectRaw("
+                e.id,
+                e.Exam_Title as exam_title,
+                e.Exam_Type as exam_type,
+                e.program_id,
+                p.Program_Name as program_name,
+                e.created_by,
+                creator_user.first_name as creator_first_name,
+                creator_user.last_name as creator_last_name,
+                legacy_user.first_name as legacy_first_name,
+                legacy_user.last_name as legacy_last_name,
+                e.created_at
+            ")
+            ->orderByDesc('e.created_at')
+            ->orderBy('e.Exam_Title')
+            ->get()
+            ->map(function ($row) {
+                $creatorFirst = trim((string) ($row->creator_first_name ?? ''));
+                $creatorLast = trim((string) ($row->creator_last_name ?? ''));
+                $legacyFirst = trim((string) ($row->legacy_first_name ?? ''));
+                $legacyLast = trim((string) ($row->legacy_last_name ?? ''));
+
+                $examinerName = trim($creatorFirst . ' ' . $creatorLast);
+                if ($examinerName === '') {
+                    $examinerName = trim($legacyFirst . ' ' . $legacyLast);
+                }
+                if ($examinerName === '') {
+                    $examinerName = $row->created_by ? 'User #' . (int) $row->created_by : 'N/A';
+                }
+
+                return [
+                    'id' => (int) $row->id,
+                    'exam_title' => (string) ($row->exam_title ?? ''),
+                    'exam_type' => (string) ($row->exam_type ?? ''),
+                    'program_id' => $row->program_id ? (int) $row->program_id : null,
+                    'program_name' => (string) ($row->program_name ?? 'N/A'),
+                    'created_by' => $row->created_by ? (int) $row->created_by : null,
+                    'examiner_name' => $examinerName,
+                    'created_at' => $row->created_at ? (string) $row->created_at : null,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $rows,
+        ]);
+    }
+
     public function adminActivities(Request $request)
     {
         $user = Auth::user();
@@ -503,6 +567,7 @@ class ReportController extends Controller
                 COALESCE(p.Program_Name, 'N/A') as program_name,
                 COALESCE(d.{$orgUnitNameColumn}, 'N/A') as college_name,
                 ans.total_score as total,
+                MAX(ans.updated_at) as checked_at,
                 u.last_name,
                 u.first_name,
                 u.middle_initial,
@@ -550,6 +615,7 @@ class ReportController extends Controller
                     'total' => (int) ($row->total ?? 0),
                     'score' => (int) ($row->total ?? 0),
                     'items' => 100,
+                    'checked_at' => $row->checked_at,
                 ];
             })
             ->values();
@@ -582,13 +648,14 @@ class ReportController extends Controller
                     ans.id as answer_sheet_id,
                     e.Exam_Title as exam_name,
                     e.Exam_Type as exam_type,
-                    COALESCE(p.Program_Name, 'N/A') as program_name,
-                    COALESCE(d.{$orgUnitNameColumn}, 'N/A') as college_name,
-                    ans.total_score as total,
-                    u.last_name,
-                    u.first_name,
-                    u.middle_initial,
-                    u.extension_name,
+                COALESCE(p.Program_Name, 'N/A') as program_name,
+                COALESCE(d.{$orgUnitNameColumn}, 'N/A') as college_name,
+                ans.total_score as total,
+                MAX(ans.updated_at) as checked_at,
+                u.last_name,
+                u.first_name,
+                u.middle_initial,
+                u.extension_name,
                     COALESCE(MAX(CASE WHEN LOWER(s.Subject_Name) LIKE '%math%' THEN er.raw_score END), 0) as math,
                     COALESCE(MAX(CASE WHEN LOWER(s.Subject_Name) LIKE '%english%' THEN er.raw_score END), 0) as english,
                     COALESCE(MAX(CASE
@@ -623,18 +690,19 @@ class ReportController extends Controller
                         'student_full_name' => $fullName,
                         'exam_name' => $row->exam_name,
                         'exam_type' => (string) ($row->exam_type ?? ''),
-                        'program_name' => (string) ($row->program_name ?? 'N/A'),
-                        'college_name' => (string) ($row->college_name ?? 'N/A'),
-                        'math' => (int) $row->math,
-                        'english' => (int) $row->english,
-                        'science' => (int) $row->science,
-                        'social_science' => (int) $row->social_science,
-                        'total' => (int) ($row->total ?? 0),
-                        'score' => (int) ($row->total ?? 0),
-                        'items' => 100,
-                    ];
-                })
-                ->values();
+                    'program_name' => (string) ($row->program_name ?? 'N/A'),
+                    'college_name' => (string) ($row->college_name ?? 'N/A'),
+                    'math' => (int) $row->math,
+                    'english' => (int) $row->english,
+                    'science' => (int) $row->science,
+                    'social_science' => (int) $row->social_science,
+                    'total' => (int) ($row->total ?? 0),
+                    'score' => (int) ($row->total ?? 0),
+                    'items' => 100,
+                    'checked_at' => $row->checked_at,
+                ];
+            })
+            ->values();
         }
 
         return response()->json([

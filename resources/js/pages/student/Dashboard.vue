@@ -30,7 +30,13 @@
             <div class="col-lg-6">
                 <div class="row g-3">
                     <div class="col-sm-6" v-for="(stat, index) in stats" :key="index">
-                        <div class="card border-0 shadow-sm p-4 rounded-4 stat-card h-100 bg-white">
+                        <button
+                            type="button"
+                            class="card border-0 shadow-sm p-4 rounded-4 stat-card h-100 bg-white text-start"
+                            :class="{ 'stat-clickable': Boolean(stat.route) }"
+                            :disabled="!stat.route"
+                            @click="goToStat(stat)"
+                        >
                             <div :class="['stat-icon mb-3', stat.colorClass]">
                                 <i :class="stat.icon"></i>
                             </div>
@@ -38,7 +44,7 @@
                                 {{ isLoading ? '...' : stat.value }}
                             </div>
                             <div class="stat-label text-muted small fw-medium text-uppercase">{{ stat.label }}</div>
-                        </div>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -63,10 +69,10 @@ const router = useRouter();
 const isEmailVerified = computed(() => Boolean(user.value?.email_verified_at));
 
 const stats = ref([
-    { label: 'Exams Taken', value: '0', icon: 'bi-file-earmark-text', colorClass: 'bg-emerald-light text-emerald', key: 'exams_taken' },
-    { label: 'Exams Completed', value: '0', icon: 'bi-check-circle', colorClass: 'bg-emerald-light text-emerald', key: 'exams_completed' },
-    { label: 'Subjects', value: '0', icon: 'bi-journal-bookmark', colorClass: 'bg-emerald-light text-emerald', key: 'total_subjects' },
-    { label: 'Passing Rate', value: '0%', icon: 'bi-graph-up', colorClass: 'bg-emerald-light text-emerald', key: 'passing_rate' }
+    { label: 'Exams Taken', value: '0', icon: 'bi-file-earmark-text', colorClass: 'bg-emerald-light text-emerald', key: 'exams_taken', route: '/student/exams' },
+    { label: 'Exams Completed', value: '0', icon: 'bi-check-circle', colorClass: 'bg-emerald-light text-emerald', key: 'exams_completed', route: '/student/reports' },
+    { label: 'Subjects', value: '0', icon: 'bi-journal-bookmark', colorClass: 'bg-emerald-light text-emerald', key: 'total_subjects', route: '/student/subjects' },
+    { label: 'Passing Rate', value: '0%', icon: 'bi-graph-up', colorClass: 'bg-emerald-light text-emerald', key: 'passing_rate', route: '/student/reports' }
 ]);
 
 /**
@@ -159,6 +165,11 @@ const stopAndCloseScanner = async (result) => {
     }
 };
 
+const goToStat = (stat) => {
+    if (!stat?.route) return;
+    router.push(stat.route);
+};
+
 const loadStats = async () => {
     isLoading.value = true;
     try {
@@ -244,10 +255,32 @@ onBeforeUnmount(async () => {
 
 .stat-card {
     transition: transform 0.2s;
+    border: none;
+    box-shadow: 0 0.75rem 1.5rem rgba(15, 23, 42, 0.08) !important;
 }
 
 .stat-card:hover {
     transform: translateY(-5px);
+}
+
+.stat-clickable {
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    display: block;
+    width: 100%;
+    margin: 0;
+    font: inherit;
+    line-height: inherit;
+}
+
+.stat-clickable::-moz-focus-inner {
+    border: 0;
+    padding: 0;
+}
+
+.stat-clickable:disabled {
+    cursor: default;
 }
 
 /* Ensure the video inside SWAL looks good */

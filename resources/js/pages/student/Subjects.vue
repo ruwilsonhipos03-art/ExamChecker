@@ -52,12 +52,15 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import axios from 'axios';
+import { useNotifications } from '../../composables/useNotifications';
 
 const subjects = ref([]);
 const loading = ref(false);
 const search = ref('');
+const latestSubjectUpdate = ref(null);
+const { markSeen } = useNotifications({ poll: false });
 
 const filteredSubjects = computed(() => {
   const q = search.value.toLowerCase();
@@ -85,6 +88,11 @@ const loadSubjects = async () => {
   try {
     const { data } = await axios.get('/api/student/subjects');
     subjects.value = Array.isArray(data?.data) ? data.data : [];
+    latestSubjectUpdate.value = subjects.value
+      .flatMap((row) => [row.assigned_at, row.instructor_assigned_at])
+      .filter(Boolean)
+      .sort()
+      .slice(-1)[0] || null;
   } catch (error) {
     subjects.value = [];
     window.Swal?.fire({
@@ -99,6 +107,12 @@ const loadSubjects = async () => {
 };
 
 onMounted(loadSubjects);
+
+onUnmounted(() => {
+  if (latestSubjectUpdate.value) {
+    markSeen('subjects', latestSubjectUpdate.value);
+  }
+});
 </script>
 
 <style scoped>

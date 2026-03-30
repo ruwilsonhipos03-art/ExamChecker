@@ -53,12 +53,15 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 import axios from 'axios';
+import { useNotifications } from '../../composables/useNotifications';
 
 const schedules = ref([]);
 const isLoading = ref(true);
 const errorMessage = ref('');
+const latestAssignedAt = ref(null);
+const { markSeen } = useNotifications({ poll: false });
 
 const loadSchedules = async () => {
   isLoading.value = true;
@@ -67,6 +70,11 @@ const loadSchedules = async () => {
   try {
     const { data } = await axios.get('/api/student/schedules');
     schedules.value = Array.isArray(data?.data) ? data.data : [];
+    latestAssignedAt.value = schedules.value
+      .map((row) => row.assigned_at)
+      .filter(Boolean)
+      .sort()
+      .slice(-1)[0] || null;
   } catch (error) {
     schedules.value = [];
     errorMessage.value = error?.response?.data?.message || 'Failed to load schedules.';
@@ -102,6 +110,12 @@ const formatTime = (value) => {
 };
 
 onMounted(loadSchedules);
+
+onUnmounted(() => {
+  if (latestAssignedAt.value) {
+    markSeen('schedules', latestAssignedAt.value);
+  }
+});
 </script>
 
 <style scoped>
