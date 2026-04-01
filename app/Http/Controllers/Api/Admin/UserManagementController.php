@@ -63,9 +63,11 @@ class UserManagementController extends Controller
         $rows = DB::table('users as u')
             ->leftJoin('employees as emp', 'emp.user_id', '=', 'u.id')
             ->leftJoin('students as st', 'st.user_id', '=', 'u.id')
-            ->leftJoin('programs as p', 'p.id', '=', 'st.program_id')
+            ->leftJoin('programs as emp_program', 'emp_program.id', '=', 'emp.program_id')
+            ->leftJoin('programs as student_program', 'student_program.id', '=', 'st.program_id')
             ->leftJoin($orgUnitTable . ' as emp_org', 'emp_org.id', '=', 'emp.' . $employeeOrgUnitColumn)
-            ->leftJoin($orgUnitTable . ' as prog_org', 'prog_org.id', '=', 'p.' . $programOrgUnitColumn)
+            ->leftJoin($orgUnitTable . ' as emp_program_org', 'emp_program_org.id', '=', 'emp_program.' . $programOrgUnitColumn)
+            ->leftJoin($orgUnitTable . ' as student_program_org', 'student_program_org.id', '=', 'student_program.' . $programOrgUnitColumn)
             ->leftJoin('offices as o', 'o.id', '=', 'emp.office_id')
             ->leftJoinSub($screeningSummary, 'screening_summary', function ($join) {
                 $join->on('screening_summary.user_id', '=', 'u.id');
@@ -90,9 +92,9 @@ class UserManagementController extends Controller
                 'emp.Employee_Number as employee_number',
                 'st.id as student_profile_id',
                 'st.Student_Number as student_number',
-                'p.id as program_id',
-                'p.Program_Name as program_name',
-                DB::raw("COALESCE(emp_org.{$orgUnitNameColumn}, prog_org.{$orgUnitNameColumn}, 'N/A') as college_name"),
+                DB::raw('COALESCE(emp_program.id, student_program.id) as program_id'),
+                DB::raw("COALESCE(emp_program.Program_Name, student_program.Program_Name, 'N/A') as program_name"),
+                DB::raw("COALESCE(emp_org.{$orgUnitNameColumn}, emp_program_org.{$orgUnitNameColumn}, student_program_org.{$orgUnitNameColumn}, 'N/A') as college_name"),
                 DB::raw("COALESCE(o.Office_Name, 'N/A') as office_name"),
                 DB::raw('CASE WHEN u.email_verified_at IS NULL THEN 0 ELSE 1 END as has_verified_email'),
                 DB::raw('COALESCE(screening_summary.has_entrance_exam_taken, 0) as has_entrance_exam_taken'),

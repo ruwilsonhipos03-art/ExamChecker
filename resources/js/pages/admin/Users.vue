@@ -5,11 +5,18 @@
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                     <div>
                         <h4 class="fw-bold mb-1 text-dark">Users</h4>
-                        <p class="text-muted small mb-0">All people who use the system, including staff, students, and applicants.</p>
+                        <p class="text-muted small mb-0">All people who use the system, including staff, students, and
+                            applicants.</p>
                     </div>
-                    <button @click="openModal()" class="btn btn-emerald fw-bold px-4 shadow-sm">
-                        <i class="bi bi-person-plus me-2"></i>Add Employee
-                    </button>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button @click="printUsers" class="btn btn-outline-secondary fw-bold px-4 shadow-sm"
+                            :disabled="loading || filteredRows.length === 0">
+                            <i class="bi bi-printer me-2"></i>Print
+                        </button>
+                        <button @click="openModal()" class="btn btn-emerald fw-bold px-4 shadow-sm">
+                            <i class="bi bi-person-plus me-2"></i>Add Employee
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -30,12 +37,8 @@
                 <div class="row g-3 align-items-end">
                     <div class="col-lg-3 col-md-6">
                         <label class="form-label small fw-semibold mb-1">Search</label>
-                        <input
-                            v-model.trim="filters.search"
-                            type="text"
-                            class="form-control form-control-sm"
-                            placeholder="Name, username, ID no., role, program..."
-                        >
+                        <input v-model.trim="filters.search" type="text" class="form-control form-control-sm"
+                            placeholder="Name, username, ID no., role, program...">
                     </div>
 
                     <div class="col-lg-2 col-md-6">
@@ -51,7 +54,8 @@
                         <label class="form-label small fw-semibold mb-1">Program</label>
                         <select v-model="filters.programName" class="form-select form-select-sm">
                             <option value="">All Programs</option>
-                            <option v-for="program in programOptions" :key="program" :value="program">{{ program }}</option>
+                            <option v-for="program in programOptions" :key="program" :value="program">{{ program }}
+                            </option>
                         </select>
                     </div>
 
@@ -99,7 +103,8 @@
                                 <td colspan="8" class="text-center py-5 text-muted">Loading users...</td>
                             </tr>
                             <tr v-else-if="filteredRows.length === 0">
-                                <td colspan="8" class="text-center py-5 text-muted">No users found for the selected filters.</td>
+                                <td colspan="8" class="text-center py-5 text-muted">No users found for the selected
+                                    filters.</td>
                             </tr>
                             <tr v-else v-for="(row, index) in filteredRows" :key="row.id">
                                 <td class="ps-3">{{ index + 1 }}</td>
@@ -115,11 +120,8 @@
                                 </td>
                                 <td>
                                     <div class="d-flex flex-wrap gap-1">
-                                        <span
-                                            v-for="role in row.roles"
-                                            :key="`${row.id}-${role}`"
-                                            class="badge rounded-pill bg-light text-dark border px-2 py-1"
-                                        >
+                                        <span v-for="role in row.roles" :key="`${row.id}-${role}`"
+                                            class="badge rounded-pill bg-light text-dark border px-2 py-1">
                                             {{ prettyRole(role) }}
                                         </span>
                                     </div>
@@ -133,25 +135,25 @@
                                     <div class="small text-muted">{{ row.office_name || 'N/A' }}</div>
                                 </td>
                                 <td>
-                                    <span v-if="studentStatus(row)" :class="['badge border', studentStatus(row).className]">
+                                    <span v-if="studentStatus(row)"
+                                        :class="['badge border', studentStatus(row).className]">
                                         {{ studentStatus(row).label }}
                                     </span>
-                                    <span v-else class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
+                                    <span v-else
+                                        class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
                                         Active User
                                     </span>
                                 </td>
                                 <td class="text-end pe-3">
                                     <template v-if="canManageEmployee(row)">
-                                        <button @click="openModal(row)" class="btn btn-icon btn-light-success me-2" title="Edit">
+                                        <button @click="openModal(row)" class="btn btn-icon btn-light-success me-2"
+                                            title="Edit">
                                             <i class="bi bi-pencil-square"></i>
                                         </button>
-                                        <button
-                                            @click="deleteEmployee(row)"
-                                            class="btn btn-icon btn-light-danger"
-                                            :disabled="deletingId === row.employee_id"
-                                            title="Delete"
-                                        >
-                                            <span v-if="deletingId === row.employee_id" class="spinner-border spinner-border-sm"></span>
+                                        <button @click="deleteEmployee(row)" class="btn btn-icon btn-light-danger"
+                                            :disabled="deletingId === row.employee_id" title="Delete">
+                                            <span v-if="deletingId === row.employee_id"
+                                                class="spinner-border spinner-border-sm"></span>
                                             <i v-else class="bi bi-trash3"></i>
                                         </button>
                                     </template>
@@ -175,7 +177,8 @@
                         <div class="modal-body p-4">
                             <div class="row g-3">
                                 <div class="col-md-5">
-                                    <label class="form-label small fw-bold text-uppercase label-required">First Name</label>
+                                    <label class="form-label small fw-bold text-uppercase label-required">First
+                                        Name</label>
                                     <input v-model="form.first_name" type="text" class="form-control" required>
                                 </div>
                                 <div class="col-md-2">
@@ -183,113 +186,124 @@
                                     <input v-model="form.middle_initial" type="text" class="form-control" maxlength="2">
                                 </div>
                                 <div class="col-md-5">
-                                    <label class="form-label small fw-bold text-uppercase label-required">Last Name</label>
+                                    <label class="form-label small fw-bold text-uppercase label-required">Last
+                                        Name</label>
                                     <input v-model="form.last_name" type="text" class="form-control" required>
                                 </div>
 
                                 <div class="col-md-12">
                                     <label class="form-label small fw-bold text-uppercase">Extension Name</label>
-                                    <input v-model="form.extension_name" type="text" class="form-control" maxlength="10">
+                                    <input v-model="form.extension_name" type="text" class="form-control"
+                                        maxlength="10">
                                 </div>
 
                                 <div class="col-md-12 py-2">
-                                    <label class="form-label small fw-bold text-uppercase label-required">System Role Assignment</label>
+                                    <label class="form-label small fw-bold text-uppercase label-required">System Role
+                                        Assignment</label>
                                     <div class="p-3 border rounded bg-white shadow-sm">
                                         <div class="d-flex flex-wrap align-items-center gap-4">
                                             <div class="form-check">
-                                                <input
-                                                    class="form-check-input custom-check"
-                                                    type="radio"
-                                                    value="college_dean"
-                                                    id="roleDept"
-                                                    v-model="roleSelectionType"
-                                                    @change="handleRoleTypeChange"
-                                                >
-                                                <label class="form-check-label fw-bold text-dark" for="roleDept">College Dean</label>
+                                                <input class="form-check-input custom-check" type="radio"
+                                                    value="college_dean" id="roleDept" v-model="roleSelectionType"
+                                                    @change="handleRoleTypeChange">
+                                                <label class="form-check-label fw-bold text-dark" for="roleDept">College
+                                                    Dean</label>
                                             </div>
                                             <div class="vr mx-1 d-none d-md-block" style="height: 20px;"></div>
                                             <div class="form-check">
-                                                <input
-                                                    class="form-check-input custom-check"
-                                                    type="radio"
-                                                    value="staff"
-                                                    id="roleStaff"
-                                                    v-model="roleSelectionType"
-                                                    @change="handleRoleTypeChange"
-                                                >
-                                                <label class="form-check-label fw-bold text-dark" for="roleStaff">Academic / Staff</label>
+                                                <input class="form-check-input custom-check" type="radio" value="staff"
+                                                    id="roleStaff" v-model="roleSelectionType"
+                                                    @change="handleRoleTypeChange">
+                                                <label class="form-check-label fw-bold text-dark"
+                                                    for="roleStaff">Academic /
+                                                    Staff</label>
                                             </div>
                                             <div class="d-flex gap-3 ms-3 ms-md-0" v-if="roleSelectionType === 'staff'">
                                                 <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" value="instructor" id="chkInst" v-model="form.roles">
-                                                    <label class="form-check-label small" for="chkInst">Instructor</label>
+                                                    <input class="form-check-input" type="checkbox" value="instructor"
+                                                        id="chkInst" v-model="form.roles" @change="syncAssignmentFields">
+                                                    <label class="form-check-label small"
+                                                        for="chkInst">Instructor</label>
                                                 </div>
                                                 <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" value="entrance_examiner" id="chkExam" v-model="form.roles">
-                                                    <label class="form-check-label small" for="chkExam">Entrance Examiner</label>
+                                                    <input class="form-check-input" type="checkbox"
+                                                        value="entrance_examiner" id="chkExam" v-model="form.roles" @change="syncAssignmentFields">
+                                                    <label class="form-check-label small" for="chkExam">Entrance
+                                                        Examiner</label>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                    <div v-if="form.roles.length === 0" class="text-danger small mt-1">Please select at least one role.</div>
+                                    <div v-if="form.roles.length === 0" class="text-danger small mt-1">Please select at
+                                        least
+                                        one role.</div>
                                 </div>
 
-                                <div class="col-md-6">
+                                <div v-if="showCollegeField" class="col-md-6">
                                     <label class="form-label small fw-bold text-uppercase">College</label>
                                     <select v-model="form.college_id" class="form-select">
                                         <option value="">None / Unassigned</option>
-                                        <option v-for="dept in colleges" :key="dept.id" :value="dept.id">{{ dept.College_Name }}</option>
+                                        <option v-for="dept in colleges" :key="dept.id" :value="dept.id">{{
+                                            dept.College_Name }}
+                                        </option>
                                     </select>
                                 </div>
 
-                                <div class="col-md-6">
+                                <div v-if="showOfficeField" class="col-md-6">
                                     <label class="form-label small fw-bold text-uppercase">Office</label>
                                     <select v-model="form.office_id" class="form-select">
                                         <option value="">None / Unassigned</option>
-                                        <option v-for="off in offices" :key="off.id" :value="off.id">{{ off.Office_Name }}</option>
+                                        <option v-for="off in offices" :key="off.id" :value="off.id">{{ off.Office_Name
+                                            }}
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <div v-if="showProgramField" class="col-md-6">
+                                    <label class="form-label small fw-bold text-uppercase">Program</label>
+                                    <select v-model="form.program_id" class="form-select">
+                                        <option value="">Select Program</option>
+                                        <option v-for="program in employeeProgramOptions" :key="program.id" :value="program.id">
+                                            {{ program.Program_Name }}
+                                        </option>
                                     </select>
                                 </div>
 
                                 <div class="col-md-12" v-if="editMode">
                                     <label class="form-label small fw-bold text-uppercase">Employee Number</label>
-                                    <input v-model="form.employee_number" type="text" class="form-control" readonly disabled>
+                                    <input v-model="form.employee_number" type="text" class="form-control" readonly
+                                        disabled>
                                 </div>
 
                                 <div class="col-md-12">
-                                    <label class="form-label small fw-bold text-uppercase label-required">Username</label>
+                                    <label
+                                        class="form-label small fw-bold text-uppercase label-required">Username</label>
                                     <input v-model="form.username" type="text" class="form-control" required>
                                 </div>
 
                                 <div class="col-md-6">
-                                    <label class="form-label small fw-bold text-uppercase" :class="{ 'label-required': !editMode }">Password</label>
-                                    <input v-model="form.password" type="password" class="form-control" :required="!editMode">
+                                    <label class="form-label small fw-bold text-uppercase"
+                                        :class="{ 'label-required': !editMode }">Password</label>
+                                    <input v-model="form.password" type="password" class="form-control"
+                                        :required="!editMode">
                                 </div>
 
                                 <div class="col-md-6">
-                                    <label
-                                        class="form-label small fw-bold text-uppercase"
-                                        :class="{ 'label-required': !editMode || form.password.length > 0 }"
-                                    >
+                                    <label class="form-label small fw-bold text-uppercase"
+                                        :class="{ 'label-required': !editMode || form.password.length > 0 }">
                                         Confirm Password
                                     </label>
-                                    <input
-                                        v-model="form.password_confirmation"
-                                        type="password"
-                                        class="form-control"
-                                        :class="{ 'is-invalid': showPassError }"
-                                        @focus="isConfirmFocused = true"
-                                    >
+                                    <input v-model="form.password_confirmation" type="password" class="form-control"
+                                        :class="{ 'is-invalid': showPassError }" @focus="isConfirmFocused = true">
                                     <div class="invalid-feedback">Passwords do not match.</div>
                                 </div>
                             </div>
                         </div>
                         <div class="modal-footer border-0 p-4 pt-0">
-                            <button type="button" class="btn btn-light fw-bold" data-bs-dismiss="modal" :disabled="isSaving">Cancel</button>
-                            <button
-                                type="submit"
-                                class="btn btn-emerald px-4 fw-bold"
-                                :disabled="isSaving || form.roles.length === 0 || form.password !== form.password_confirmation"
-                            >
+                            <button type="button" class="btn btn-light fw-bold" data-bs-dismiss="modal"
+                                :disabled="isSaving">Cancel</button>
+                            <button type="submit" class="btn btn-emerald px-4 fw-bold"
+                                :disabled="isSaving || form.roles.length === 0 || form.password !== form.password_confirmation">
                                 <span v-if="isSaving" class="spinner-border spinner-border-sm me-2"></span>
                                 {{ isSaving ? 'Saving...' : 'Save Data' }}
                             </button>
@@ -304,7 +318,7 @@
 <script setup>
 import { Modal } from 'bootstrap';
 import axios from 'axios';
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 
 const loading = ref(false);
 const isSaving = ref(false);
@@ -312,6 +326,7 @@ const deletingId = ref(null);
 const users = ref([]);
 const colleges = ref([]);
 const offices = ref([]);
+const programs = ref([]);
 const editMode = ref(false);
 const currentEmployeeId = ref(null);
 const modalRef = ref(null);
@@ -335,6 +350,7 @@ const form = reactive({
     employee_number: '',
     college_id: '',
     office_id: '',
+    program_id: '',
     username: '',
     password: '',
     password_confirmation: '',
@@ -373,6 +389,20 @@ const orgUnitOptions = computed(() => {
             .flatMap((row) => [row.college_name, row.office_name])
             .filter((item) => item && item !== 'N/A')
     )].sort((a, b) => String(a).localeCompare(String(b)));
+});
+
+const employeeProgramOptions = computed(() => {
+    if (!form.college_id) {
+        return [];
+    }
+
+    return programs.value
+        .filter((program) => String(program.college_id ?? '') === String(form.college_id))
+        .sort((a, b) => String(a.Program_Name || '').localeCompare(String(b.Program_Name || '')));
+});
+
+const selectedCategoryLabel = computed(() => {
+    return categoryOptions.value.find((option) => option.value === filters.category)?.label || 'All Users';
 });
 
 const filteredRows = computed(() => {
@@ -430,13 +460,13 @@ const filteredRows = computed(() => {
 
 const matchesCategory = (row, category) => {
     if (category === 'users') return true;
-    if (category === 'applicants') return row.is_applicant;
-    if (category === 'students') return row.roles.includes('student');
+    if (category === 'applicants') return categoryLabel(row) === 'Applicant';
+    if (category === 'students') return categoryLabel(row) === 'Student';
     if (category === 'instructors') return row.roles.includes('instructor');
     if (category === 'college_deans') return row.roles.includes('college_dean');
     if (category === 'entrance_examiners') return row.roles.includes('entrance_examiner');
     if (category === 'admins') return row.roles.includes('admin');
-    if (category === 'staff') return row.user_kind === 'employee';
+    if (category === 'staff') return categoryLabel(row) === 'Staff';
     return true;
 };
 
@@ -501,6 +531,137 @@ const displayIdNumber = (row) => row.employee_number || row.student_number || `U
 
 const canManageEmployee = (row) => Boolean(row.employee_id);
 
+const escapeHtml = (value) => {
+    return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+};
+
+const printTitle = computed(() => {
+    const titles = {
+        users: 'Users List',
+        staff: 'Staffs List',
+        students: 'Students List',
+        applicants: 'Applicants List',
+        instructors: 'Staffs List',
+        college_deans: 'Staffs List',
+        entrance_examiners: 'Staffs List',
+        admins: 'Staffs List',
+    };
+
+    return titles[filters.category] || `${selectedCategoryLabel.value} List`;
+});
+
+const isStudentPrintView = computed(() => filters.category === 'students');
+
+const isStaffPrintView = computed(() => (
+    filters.category === 'staff'
+    || filters.category === 'instructors'
+    || filters.category === 'college_deans'
+    || filters.category === 'entrance_examiners'
+    || filters.category === 'admins'
+));
+
+const showCollegeField = computed(() => (
+    roleSelectionType.value === 'college_dean' || form.roles.includes('instructor')
+));
+
+const showOfficeField = computed(() => form.roles.includes('entrance_examiner'));
+
+const showProgramField = computed(() => form.roles.includes('instructor') && Boolean(form.college_id));
+
+const printUsers = () => {
+    if (loading.value || filteredRows.value.length === 0) {
+        return;
+    }
+
+    const tableHeaders = isStudentPrintView.value
+        ? ['No.', 'Student Number', 'Full Name', 'Program']
+        : isStaffPrintView.value
+            ? ['No.', 'Employee ID', 'Full Name', 'Role', 'Program']
+            : ['No.', 'ID', 'Full Name', 'Program'];
+
+    const tableRows = filteredRows.value.map((row, index) => {
+        const program = row.program_name && row.program_name !== 'N/A' ? row.program_name : 'N/A';
+        const roles = Array.isArray(row.roles) && row.roles.length
+            ? row.roles.map((role) => prettyRole(role)).join(', ')
+            : '-';
+
+        if (isStudentPrintView.value) {
+            return `<tr>
+                <td>${index + 1}</td>
+                <td>${escapeHtml(row.student_number || `USER-${row.id}`)}</td>
+                <td>${escapeHtml(row.full_name || '-')}</td>
+                <td>${escapeHtml(program)}</td>
+            </tr>`;
+        }
+
+        if (isStaffPrintView.value) {
+            return `<tr>
+                <td>${index + 1}</td>
+                <td>${escapeHtml(row.employee_number || `USER-${row.id}`)}</td>
+                <td>${escapeHtml(row.full_name || '-')}</td>
+                <td>${escapeHtml(roles)}</td>
+                <td>${escapeHtml(program)}</td>
+            </tr>`;
+        }
+
+        return `<tr>
+            <td>${index + 1}</td>
+            <td>${escapeHtml(displayIdNumber(row))}</td>
+            <td>${escapeHtml(row.full_name || '-')}</td>
+            <td>${escapeHtml(program)}</td>
+        </tr>`;
+    }).join('');
+
+    const html = `
+        <html>
+            <head>
+                <meta charset="UTF-8" />
+                <title>${escapeHtml(printTitle.value)}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 28px 36px; color: #1f2937; }
+                    h2 { text-align: center; margin: 0 0 10px; font-size: 30px; font-weight: 700; }
+                    .sub { text-align: center; font-size: 14px; margin: 2px 0; color: #4b5563; }
+                    table { border-collapse: collapse; width: 100%; font-size: 13px; }
+                    th, td { border: 1px solid #cbd5e1; padding: 8px 10px; vertical-align: top; text-align: left; }
+                    th { background: #e2e8f0; font-weight: 700; }
+                </style>
+            </head>
+            <body>
+                <h2>${escapeHtml(printTitle.value)}</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            ${tableHeaders.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>${tableRows}</tbody>
+                </table>
+            </body>
+        </html>
+    `;
+
+    const printWindow = window.open('', '_blank', 'width=1200,height=900');
+    if (!printWindow) {
+        window.Swal?.fire({
+            icon: 'warning',
+            title: 'Print window blocked',
+            text: 'Please allow pop-ups for this page and try again.',
+        });
+        return;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+};
+
 const resetForm = () => {
     Object.assign(form, {
         first_name: '',
@@ -510,6 +671,7 @@ const resetForm = () => {
         employee_number: '',
         college_id: '',
         office_id: '',
+        program_id: '',
         username: '',
         password: '',
         password_confirmation: '',
@@ -519,6 +681,22 @@ const resetForm = () => {
 
 const handleRoleTypeChange = () => {
     form.roles = roleSelectionType.value === 'college_dean' ? ['college_dean'] : [];
+    syncAssignmentFields();
+};
+
+const syncAssignmentFields = () => {
+    if (!showCollegeField.value) {
+        form.college_id = '';
+        form.program_id = '';
+    }
+
+    if (!showProgramField.value) {
+        form.program_id = '';
+    }
+
+    if (!showOfficeField.value) {
+        form.office_id = '';
+    }
 };
 
 const resetFilters = () => {
@@ -550,15 +728,18 @@ const loadUsers = async () => {
 
 const fetchOptions = async () => {
     try {
-        const [deptRes, offRes] = await Promise.all([
+        const [deptRes, offRes, progRes] = await Promise.all([
             axios.get('/api/admin/colleges'),
             axios.get('/api/admin/offices'),
+            axios.get('/api/admin/programs'),
         ]);
         colleges.value = deptRes.data.data || deptRes.data || [];
         offices.value = offRes.data.data || offRes.data || [];
+        programs.value = progRes.data.data || progRes.data || [];
     } catch (error) {
         colleges.value = [];
         offices.value = [];
+        programs.value = [];
     }
 };
 
@@ -577,6 +758,7 @@ const openModal = (row = null) => {
             employee_number: row.employee_number || '',
             college_id: row.college_id || '',
             office_id: row.office_id || '',
+            program_id: row.program_id || '',
             username: row.username || '',
             password: '',
             password_confirmation: '',
@@ -587,6 +769,7 @@ const openModal = (row = null) => {
         roleSelectionType.value = 'staff';
     }
 
+    syncAssignmentFields();
     modalInstance?.show();
 };
 
@@ -603,6 +786,7 @@ const saveEmployee = async () => {
             extension_name: form.extension_name,
             college_id: form.college_id || null,
             office_id: form.office_id || null,
+            program_id: form.program_id || null,
             username: form.username,
             password: form.password,
             password_confirmation: form.password_confirmation,
@@ -648,6 +832,12 @@ const deleteEmployee = async (row) => {
         deletingId.value = null;
     }
 };
+
+watch(() => form.college_id, () => {
+    if (!employeeProgramOptions.value.some((program) => String(program.id) === String(form.program_id))) {
+        form.program_id = '';
+    }
+});
 
 onMounted(async () => {
     modalInstance = modalRef.value ? new Modal(modalRef.value) : null;

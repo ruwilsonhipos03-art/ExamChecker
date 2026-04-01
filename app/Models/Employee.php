@@ -16,6 +16,7 @@ class Employee extends Model
         'college_id',
         'department_id',
         'office_id',
+        'program_id',
     ];
 
     private function collegeForeignKey(): string
@@ -49,5 +50,10 @@ class Employee extends Model
     public function office()
     {
         return $this->belongsTo(Office::class);
+    }
+
+    public function program()
+    {
+        return $this->belongsTo(Program::class);
     }
 }
