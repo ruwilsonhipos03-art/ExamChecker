@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\ExamSchedule;
 use App\Models\Exam;
 use App\Services\ActivityLogger;
+use App\Services\ExamScheduleCounterService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -134,6 +135,7 @@ class AuthController extends Controller
                 // lockForUpdate() prevents race conditions on concurrent registration.
                 $now = now();
                 $availableSchedule = ExamSchedule::query()
+                    ->where('schedule_type', 'entrance')
                     ->where(function ($query) use ($now) {
                         $query->where('date', '>', $now->toDateString())
                             ->orWhere(function ($inner) use ($now) {
@@ -141,7 +143,11 @@ class AuthController extends Controller
                                     ->where('time', '>=', $now->format('H:i:s'));
                             });
                     })
-                    ->whereRaw('current_examinees < capacity')
+                    ->whereRaw('(
+                        SELECT COUNT(DISTINCT ses.user_id)
+                        FROM student_exam_schedules ses
+                        WHERE ses.exam_schedule_id = exam_schedules.id
+                    ) < capacity')
                     ->orderBy('date', 'asc')
                     ->orderBy('time', 'asc')
                     ->lockForUpdate()
@@ -174,8 +180,6 @@ class AuthController extends Controller
                 ]);
 
                 // 4. Update the Examinee Counter
-                $availableSchedule->increment('current_examinees');
-
                 DB::table('student_exam_schedules')->insert([
                     'user_id' => $user->id,
                     'exam_id' => $entranceExam->id,
@@ -184,6 +188,8 @@ class AuthController extends Controller
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
+
+                app(ExamScheduleCounterService::class)->refreshScheduleCount((int) $availableSchedule->id);
 
                 // 5. Generate Access Token
                 $token = $user->createToken('auth_token')->plainTextToken;

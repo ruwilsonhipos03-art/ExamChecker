@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Recommendation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -147,6 +148,30 @@ class UserManagementController extends Controller
                 ];
             })
             ->values();
+
+        $studentChoicesByUser = Recommendation::query()
+            ->with('program:id,Program_Name')
+            ->where('type', 'student_choice')
+            ->orderBy('rank')
+            ->get()
+            ->groupBy('user_id');
+
+        $rows = $rows->map(function (array $row) use ($studentChoicesByUser) {
+            $choices = collect($studentChoicesByUser->get($row['id'], collect()))
+                ->sortBy('rank')
+                ->values();
+
+            return array_merge($row, [
+                'program_choice_1' => $choices[0]->program_id ?? null,
+                'program_choice_2' => $choices[1]->program_id ?? null,
+                'program_choice_3' => $choices[2]->program_id ?? null,
+                'program_choice_names' => $choices
+                    ->map(fn ($choice) => (string) ($choice->program?->Program_Name ?? ''))
+                    ->filter()
+                    ->values()
+                    ->all(),
+            ]);
+        })->values();
 
         return response()->json([
             'success' => true,

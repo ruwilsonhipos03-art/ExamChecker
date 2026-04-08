@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\Admin\ExamScheduleController;
 use App\Http\Controllers\Api\Admin\OfficeController;
 use App\Http\Controllers\Api\Admin\ProgramController;
 use App\Http\Controllers\Api\Admin\ProgramRequirementController;
+use App\Http\Controllers\Api\Admin\StudentController as AdminStudentController;
 use App\Http\Controllers\Api\Admin\SubjectController;
 use App\Http\Controllers\Api\Admin\UserManagementController;
 use App\Http\Controllers\Api\CollegeDean\CollegeDeanManagementController;
@@ -52,6 +53,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // General Resources
     Route::apiResource('exams', ExamController::class);
     Route::get('programs', [ProgramController::class, 'index']);
+    Route::get('subjects', [SubjectController::class, 'index']);
     Route::apiResource('answer-sheets', AnswerSheetController::class);
     Route::post('/answer-sheets/generate', [AnswerSheetController::class, 'generatePdf']);
     Route::post('/answer-sheets/generate-term', [AnswerSheetController::class, 'generateTermPdf']);
@@ -68,7 +70,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('reports/all-users', [ReportController::class, 'index']);
         Route::get('activities', [ReportController::class, 'adminActivities']);
         Route::get('students', [ReportController::class, 'adminStudents']);
+        Route::get('scheduled-students', [ReportController::class, 'adminScheduledStudents']);
+        Route::get('scheduled-students/download', [ReportController::class, 'adminScheduledStudentsDownload']);
         Route::get('exam-reports', [ReportController::class, 'adminExamReports']);
+        Route::get('exam-reports/{exam}', [ReportController::class, 'adminExamReportDetail']);
         Route::get('users', [UserManagementController::class, 'index']);
         Route::get('dashboard/stats', [DashboardStatsController::class, 'admin']);
 
@@ -79,6 +84,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('programs', ProgramController::class);
         Route::apiResource('program-requirements', ProgramRequirementController::class);
         Route::apiResource('employees', EmployeeController::class);
+        Route::post('student-accounts', [AdminStudentController::class, 'store']);
+        Route::put('student-accounts/{student}', [AdminStudentController::class, 'update']);
+        Route::delete('student-accounts/{student}', [AdminStudentController::class, 'destroy']);
     });
 
     // Department Head Group
@@ -88,6 +96,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('students', [CollegeDeanManagementController::class, 'students']);
         Route::get('subjects', [CollegeDeanManagementController::class, 'subjects']);
         Route::get('instructors', [CollegeDeanManagementController::class, 'instructors']);
+        Route::get('screening-schedules', [CollegeDeanManagementController::class, 'screeningSchedules']);
+        Route::get('screening-schedules/eligible-students', [CollegeDeanManagementController::class, 'screeningEligibleStudents']);
+        Route::post('screening-schedules', [CollegeDeanManagementController::class, 'storeScreeningSchedule']);
+        Route::put('screening-schedules/{scheduleId}', [CollegeDeanManagementController::class, 'updateScreeningSchedule']);
+        Route::delete('screening-schedules/{scheduleId}', [CollegeDeanManagementController::class, 'destroyScreeningSchedule']);
+        Route::post('screening-schedules/assign-students', [CollegeDeanManagementController::class, 'assignScreeningStudents']);
+        Route::delete('screening-schedules/assignments/{examId}/{scheduleId}/{userId}', [CollegeDeanManagementController::class, 'unassignScreeningStudent']);
 
         Route::get('subject-assignments/students', [CollegeDeanManagementController::class, 'studentAssignments']);
         Route::post('subject-assignments/students', [CollegeDeanManagementController::class, 'storeStudentAssignment']);
@@ -101,6 +116,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Entrance Group
     Route::prefix('entrance')->group(function () {
         Route::get('dashboard/stats', [DashboardStatsController::class, 'entrance']);
+        Route::get('schedules', [AnswerSheetController::class, 'entranceSchedules']);
+        Route::get('scheduled-students', [AnswerSheetController::class, 'entranceScheduledStudents']);
         Route::get('reports/examinee-results', [ReportController::class, 'entranceExamineeResults']);
         Route::get('reports/examinee-results/{answerSheetId}', [ReportController::class, 'entranceExamineeResultDetail']);
         Route::get('students/took-exams', [ReportController::class, 'entranceStudentsWhoTookExams']);

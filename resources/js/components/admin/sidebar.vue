@@ -39,7 +39,9 @@
                     </router-link>
                 </div>
             </div>
-
+            <router-link to="/admin/scheduled-students" class="nav-item">
+                <i class="bi bi-card-list"></i> Download Schedules
+            </router-link>
             <router-link to="/admin/users" class="nav-item">
                 <i class="bi bi-people-fill"></i>
                 <span v-if="!isCollapsed">Users</span>
@@ -50,8 +52,8 @@
                 <span v-if="!isCollapsed">Exam Reports</span>
             </router-link>
 
-            <router-link to="/admin/reports" class="nav-item" :class="{ 'has-dot': hasDot('reports') && !reportsActive }"
-                @click="handleNavClick('reports')">
+            <router-link to="/admin/reports" class="nav-item"
+                :class="{ 'has-dot': hasDot('reports') && !reportsActive }" @click="handleNavClick('reports')">
                 <i class="bi bi-file-earmark-bar-graph-fill"></i>
                 <span v-if="!isCollapsed">Reports</span>
             </router-link>
