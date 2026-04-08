@@ -8,11 +8,11 @@ const routes = [
     },
     {
         path: "/register",
-        redirect: "/login"
+        component: () => import("../pages/Auth/Register.vue")
     },
     {
         path: "/forgot-password",
-        redirect: "/login"
+        component: () => import("../pages/Auth/ForgotPassword.vue")
     },
     {
         path: "/",
@@ -36,7 +36,6 @@ const routes = [
                     { path: "programs", component: () => import("../pages/admin/Programs.vue") },
                     { path: "subjects", component: () => import("../pages/admin/Subjects.vue") },
                     { path: "schedules", component: () => import("../pages/admin/Schedules.vue") },
-                    { path: "scheduled-students", component: () => import("../pages/admin/ScheduledStudents.vue") },
                     { path: "students", redirect: "/admin/users" },
                     { path: "exam-reports", component: () => import("../pages/admin/ExamReports.vue") },
                     { path: "reports", component: () => import("../pages/admin/Reports.vue") },
@@ -54,14 +53,13 @@ const routes = [
                     { path: "profile", component: () => import("../pages/shared/Profile.vue") },
                     { path: "settings", component: () => import("../pages/shared/SettingsModal.vue") },
                     { path: "entrance/exams", component: () => import("../pages/college-dean/entrance/Exams.vue") },
-                    { path: "entrance/keys", redirect: "/college-dean/entrance/exams" },
-                    { path: "entrance/generate", redirect: "/college-dean/entrance/exams" },
-                    { path: "entrance/schedules", component: () => import("../pages/college-dean/entrance/Schedules.vue") },
+                    { path: "entrance/keys", component: () => import("../pages/college-dean/entrance/AnswerKeys.vue") },
+                    { path: "entrance/generate", component: () => import("../pages/college-dean/entrance/GenerateSheets.vue") },
                     { path: "entrance/reports", component: () => import("../pages/college-dean/entrance/Reports.vue") },
                     { path: "entrance/analysis", component: () => import("../pages/college-dean/entrance/Analysis.vue") },
                     { path: "normal/exams", component: () => import("../pages/college-dean/normal/Exams.vue") },
-                    { path: "normal/keys", redirect: "/college-dean/normal/exams" },
-                    { path: "normal/generate", redirect: "/college-dean/normal/exams" },
+                    { path: "normal/keys", component: () => import("../pages/college-dean/normal/AnswerKeys.vue") },
+                    { path: "normal/generate", component: () => import("../pages/college-dean/normal/GenerateSheets.vue") },
                     { path: "normal/reports", component: () => import("../pages/college-dean/normal/Reports.vue") },
                     { path: "normal/analysis", component: () => import("../pages/college-dean/normal/Analysis.vue") },
                     { path: "students", component: () => import("../pages/college-dean/Students.vue") },
@@ -83,9 +81,9 @@ const routes = [
                     { path: "settings", component: () => import("../pages/shared/SettingsModal.vue") },
                     { path: "students", component: () => import("../pages/entrance/Students.vue") },
                     { path: "exams", component: () => import("../pages/entrance/Exams.vue") },
-                    { path: "keys", redirect: "/entrance/exams" },
+                    { path: "keys", component: () => import("../pages/entrance/AnswerKeys.vue") },
                     { path: "program-requirements", component: () => import("../pages/admin/ProgramRequirements.vue") },
-                    { path: "generate", redirect: "/entrance/exams" },
+                    { path: "generate", component: () => import("../pages/entrance/GenerateSheets.vue") },
                     { path: "reports", component: () => import("../pages/entrance/Reports.vue") },
                     { path: "analysis", component: () => import("../pages/entrance/Analysis.vue") },
                 ],
@@ -102,9 +100,9 @@ const routes = [
                     { path: "profile", component: () => import("../pages/shared/Profile.vue") },
                     { path: "settings", component: () => import("../pages/shared/SettingsModal.vue") },
                     { path: "exams", component: () => import("../pages/instructor/Exams.vue") },
-                    { path: "keys", redirect: "/instructor/exams" },
-                    { path: "generate", redirect: "/instructor/exams" },
-                    { path: "sheets", redirect: "/instructor/exams" },
+                    { path: "keys", component: () => import("../pages/instructor/AnswerKeys.vue") },
+                    { path: "generate", component: () => import("../pages/instructor/GenerateSheets.vue") },
+                    { path: "sheets", redirect: "/instructor/generate" },
                     { path: "reports", component: () => import("../pages/instructor/Reports.vue") },
                     { path: "analysis", component: () => import("../pages/instructor/Analysis.vue") },
                     { path: "subjects", component: () => import("../pages/instructor/Subjects.vue") },
@@ -112,6 +110,23 @@ const routes = [
                 ],
             },
 
+            // --- STUDENT ROUTES ---
+            {
+                path: "student",
+                component: () => import("../layouts/student.vue"),
+                redirect: "/student/dashboard",
+                meta: { requiresAuth: true, role: "student" },
+                children: [
+                    { path: "dashboard", component: () => import("../pages/student/Dashboard.vue") },
+                    { path: "exams", component: () => import("../pages/student/Exams.vue") },
+                    { path: "subjects", component: () => import("../pages/student/Subjects.vue") },
+                    { path: "recommendations", component: () => import("../pages/student/Recommendations.vue") },
+                    { path: "reports", component: () => import("../pages/student/Reports.vue") },
+                    { path: "schedules", component: () => import("../pages/student/Schedules.vue") },
+                    { path: "profile", component: () => import("../pages/shared/Profile.vue") },
+                    { path: "settings", component: () => import("../pages/shared/SettingsModal.vue") },
+                ],
+            },
         ],
     },
 ];
@@ -156,13 +171,14 @@ router.beforeEach((to, from, next) => {
         }
     }
 
-    // 3. Prevent logged-in users from accessing the login page
-    if (token && to.path === '/login') {
+    // 3. Prevent logged-in users from accessing Auth pages (Login/Register)
+    if (token && (to.path === '/login' || to.path === '/register')) {
         const roleRoutes = {
             admin: '/admin/dashboard',
             college_dean: '/college-dean/dashboard',
             instructor: '/instructor/dashboard',
-            entrance_examiner: '/entrance/dashboard'
+            entrance_examiner: '/entrance/dashboard',
+            student: '/student/dashboard'
         };
         return next(roleRoutes[user.role] || '/');
     }

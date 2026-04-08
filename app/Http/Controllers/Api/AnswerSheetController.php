@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\AnswerKey;
 use App\Models\AnswerSheet;
 use App\Models\Exam;
 use App\Models\ExamSubject;
@@ -21,7 +20,6 @@ use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class AnswerSheetController extends Controller
 {
-    private const ENTRANCE_TYPE_ALIASES = ['entrance', 'entrance exam'];
     private const SCREENING_TYPE_ALIASES = ['screening', 'screening exam'];
     private const PASSING_SCORE = 75;
     private const TYPE_STUDENT_CHOICE = 'student_choice';
@@ -33,7 +31,7 @@ class AnswerSheetController extends Controller
         $user = Auth::user();
         $userId = Auth::id();
 
-        $query = AnswerSheet::with(['exam.creator.college', 'exam.program', 'user.studentProfile.program']);
+        $query = AnswerSheet::with(['exam.creator.college', 'exam.program']);
 
         if ($user && $user->role === 'student') {
             return $query
@@ -108,85 +106,20 @@ class AnswerSheetController extends Controller
 
         $data = $request->validate([
             'exam_id' => 'required|exists:exams,id',
-            'count' => 'nullable|integer|min:1|max:200',
-            'exam_schedule_id' => 'nullable|exists:exam_schedules,id',
+            'count' => 'required|integer|min:1|max:200',
         ]);
 
         $examId = (int) $data['exam_id'];
+        $count = (int) $data['count'];
 
-        if (!$this->hasReadyAnswerKeyForUser($examId, Auth::id())) {
-            return response()->json([
-                'message' => 'Please set a complete answer key for this exam before generating answer sheets.',
-            ], 422);
+        $created = collect();
+        for ($i = 0; $i < $count; $i++) {
+            $sheet = $this->createSheet($examId);
+            $created->push($sheet->load('exam'));
         }
 
+        $pdfSheets = $created->map(fn ($sheet) => $this->formatSheetForPdf($sheet))->all();
         $exam = Exam::find($examId);
-        $scheduleId = isset($data['exam_schedule_id']) ? (int) $data['exam_schedule_id'] : 0;
-
-        if ($scheduleId > 0) {
-            $scheduledStudents = $this->scheduledStudentsForScheduleQuery($scheduleId, $examId)
-                ->get();
-
-            if ($scheduledStudents->isEmpty()) {
-                return response()->json([
-                    'message' => 'No students are assigned to the selected exam schedule.',
-                ], 422);
-            }
-
-            $choiceMap = $this->programChoicesMapForUsers(
-                $scheduledStudents->pluck('user_id')->map(fn ($id) => (int) $id)->all()
-            );
-
-            $pdfSheets = $scheduledStudents->map(function ($row) use ($examId, $choiceMap) {
-                $sheet = AnswerSheet::firstOrCreate(
-                    [
-                        'exam_id' => $examId,
-                        'user_id' => (int) $row->user_id,
-                        'created_by' => (int) Auth::id(),
-                    ],
-                    [
-                        'status' => 'generated',
-                        'qr_payload' => '',
-                    ]
-                );
-
-                $sheet->update([
-                    'qr_payload' => $this->buildSheetCode(
-                        (int) ($row->user_id ?? $sheet->user_id ?? 0),
-                        (int) $sheet->id,
-                        (int) $sheet->exam_id
-                    ),
-                ]);
-
-                return $this->formatSheetForPdf($sheet, [
-                    'student_name' => $this->formatStudentNameFromRow($row),
-                    'last_name' => (string) ($row->last_name ?? ''),
-                    'first_name' => (string) ($row->first_name ?? ''),
-                    'middle_initial' => (string) ($row->middle_initial ?? ''),
-                    'extension_name' => (string) ($row->extension_name ?? ''),
-                    'student_number' => (string) ($row->Student_Number ?? ''),
-                    'scheduled_date' => $row->scheduled_date
-                        ? \Carbon\Carbon::parse($row->scheduled_date)->format('F j, Y')
-                        : '',
-                    'program_choices' => $choiceMap[(int) $row->user_id] ?? [],
-                ]);
-            })->all();
-        } else {
-            $count = (int) ($data['count'] ?? 0);
-            if ($count <= 0) {
-                return response()->json([
-                    'message' => 'Please enter the number of sheets to generate.',
-                ], 422);
-            }
-
-            $created = collect();
-            for ($i = 0; $i < $count; $i++) {
-                $sheet = $this->createSheet($examId);
-                $created->push($sheet->load('exam'));
-            }
-
-            $pdfSheets = $created->map(fn ($sheet) => $this->formatSheetForPdf($sheet))->all();
-        }
 
         $pdf = Pdf::setOption([
             'dpi' => 96,
@@ -200,134 +133,6 @@ class AnswerSheetController extends Controller
         $fileName = 'answer_sheets_generated_' . now()->format('Ymd_His') . '.pdf';
 
         return $pdf->download($fileName);
-    }
-
-    public function entranceScheduledStudents(Request $request)
-    {
-        $user = $request->user();
-        if (!$user || !str_contains((string) $user->role, 'entrance')) {
-            return response()->json([
-                'message' => 'Only entrance examiners can access scheduled students.',
-            ], 403);
-        }
-
-        $rows = $this->scheduledEntranceStudentsQuery()->get();
-        $choiceMap = $this->programChoicesMapForUsers(
-            $rows->pluck('user_id')->map(fn ($id) => (int) $id)->all()
-        );
-
-        $schedules = $rows
-            ->groupBy('exam_schedule_id')
-            ->map(function ($group) use ($choiceMap) {
-                $first = $group->first();
-
-                return [
-                    'id' => (int) $first->exam_schedule_id,
-                    'date' => (string) ($first->scheduled_date ?? ''),
-                    'formatted_date' => $first->scheduled_date
-                        ? \Carbon\Carbon::parse($first->scheduled_date)->format('F j, Y')
-                        : '',
-                    'time' => (string) ($first->scheduled_time ?? ''),
-                    'location' => (string) ($first->scheduled_location ?? ''),
-                    'label' => trim(implode(' | ', array_filter([
-                        $first->scheduled_date ? \Carbon\Carbon::parse($first->scheduled_date)->format('F j, Y') : '',
-                        (string) ($first->scheduled_time ?? ''),
-                        (string) ($first->scheduled_location ?? ''),
-                    ]))),
-                    'students' => $group->map(function ($row) use ($choiceMap) {
-                        $choices = $choiceMap[(int) $row->user_id] ?? [];
-
-                        return [
-                            'user_id' => (int) $row->user_id,
-                            'student_number' => (string) ($row->Student_Number ?? ''),
-                            'student_name' => $this->formatStudentNameFromRow($row),
-                            'first_name' => (string) ($row->first_name ?? ''),
-                            'middle_initial' => (string) ($row->middle_initial ?? ''),
-                            'last_name' => (string) ($row->last_name ?? ''),
-                            'extension_name' => (string) ($row->extension_name ?? ''),
-                            'program_choices' => $choices,
-                            'program_choice_1' => (string) ($choices[0] ?? ''),
-                            'program_choice_2' => (string) ($choices[1] ?? ''),
-                            'program_choice_3' => (string) ($choices[2] ?? ''),
-                        ];
-                    })->values()->all(),
-                ];
-            })
-            ->values()
-            ->all();
-
-        return response()->json([
-            'data' => $schedules,
-        ]);
-    }
-
-    public function entranceSchedules(Request $request)
-    {
-        $user = $request->user();
-        if (!$user || !str_contains((string) $user->role, 'entrance')) {
-            return response()->json([
-                'message' => 'Only entrance examiners can access schedules.',
-            ], 403);
-        }
-
-        $validated = $request->validate([
-            'exam_id' => 'nullable|integer|exists:exams,id',
-        ]);
-
-        $examId = (int) ($validated['exam_id'] ?? 0);
-
-        $schedules = DB::table('exam_schedules as sch')
-            ->leftJoin('student_exam_schedules as ses', function ($join) use ($examId) {
-                $join->on('ses.exam_schedule_id', '=', 'sch.id');
-                if ($examId > 0) {
-                    $join->where('ses.exam_id', '=', $examId);
-                }
-            })
-            ->where('sch.schedule_type', 'entrance')
-            ->select([
-                'sch.id',
-                'sch.date',
-                'sch.time',
-                'sch.location',
-                'sch.schedule_name',
-                'sch.capacity',
-                'sch.schedule_type',
-            ])
-            ->selectRaw('COUNT(DISTINCT ses.user_id) as assigned_students')
-            ->orderBy('sch.date', 'asc')
-            ->orderBy('sch.time', 'asc')
-            ->groupBy('sch.id', 'sch.date', 'sch.time', 'sch.location', 'sch.schedule_name', 'sch.capacity', 'sch.schedule_type')
-            ->get()
-            ->map(function ($schedule) {
-                $assignedCount = (int) ($schedule->assigned_students ?? 0);
-                $capacity = (int) ($schedule->capacity ?? 0);
-
-                return [
-                    'id' => (int) $schedule->id,
-                    'date' => (string) ($schedule->date ?? ''),
-                    'formatted_date' => $schedule->date
-                        ? \Carbon\Carbon::parse($schedule->date)->format('F j, Y')
-                        : '',
-                    'time' => (string) ($schedule->time ?? ''),
-                    'location' => (string) ($schedule->location ?? ''),
-                    'schedule_name' => (string) ($schedule->schedule_name ?? ''),
-                    'capacity' => $capacity,
-                    'assigned_students' => $assignedCount,
-                    'current_examinees' => $assignedCount,
-                    'label' => trim(implode(' | ', array_filter([
-                        (string) ($schedule->schedule_name ?? ''),
-                        $schedule->date ? \Carbon\Carbon::parse($schedule->date)->format('F j, Y') : '',
-                        (string) ($schedule->time ?? ''),
-                        (string) ($schedule->location ?? ''),
-                        'Current: ' . $assignedCount . '/' . $capacity,
-                    ]))),
-                ];
-            })
-            ->values();
-
-        return response()->json([
-            'data' => $schedules,
-        ]);
     }
 
     public function generateTermPdf(Request $request)
@@ -370,12 +175,6 @@ class AnswerSheetController extends Controller
         if (!$examSubject) {
             return response()->json([
                 'message' => 'Selected subject is not attached to this exam.',
-            ], 422);
-        }
-
-        if (!$this->hasReadyAnswerKeyForUser($examId, $user->id, (int) $examSubject->id)) {
-            return response()->json([
-                'message' => 'Please set a complete answer key for this exam before generating answer sheets.',
             ], 422);
         }
 
@@ -483,7 +282,7 @@ class AnswerSheetController extends Controller
                         ->where('user_id', Auth::id());
                 });
         })->findOrFail($id);
-        $sheets = [$this->formatSheetForPdf($sheet, $this->sheetPdfContext($sheet))];
+        $sheets = [$this->formatSheetForPdf($sheet)];
 
         $pdf = Pdf::loadView('pdf.bubble_sheet', [
             'sheets' => $sheets,
@@ -525,7 +324,7 @@ class AnswerSheetController extends Controller
             return response()->json(['message' => 'Some selected sheets are invalid or not owned by your account.'], 422);
         }
 
-        $pdfSheets = $sheets->map(fn ($sheet) => $this->formatSheetForPdf($sheet, $this->sheetPdfContext($sheet)))->all();
+        $pdfSheets = $sheets->map(fn ($sheet) => $this->formatSheetForPdf($sheet))->all();
         $exam = Exam::find($sheets->first()->exam_id);
 
         $pdf = Pdf::setOption([
@@ -673,71 +472,20 @@ class AnswerSheetController extends Controller
             'status' => 'generated',
         ]);
 
-        $sheetCode = $this->buildSheetCode((int) ($sheet->user_id ?? 0), $sheet->id, $examId);
+        $sheetCode = $this->buildSheetCode($sheet->id, $examId);
         $sheet->update(['qr_payload' => $sheetCode]);
 
         return $sheet;
     }
 
-    private function hasReadyAnswerKeyForUser(int $examId, ?int $userId, ?int $examSubjectId = null): bool
+    private function buildSheetCode(int $sheetId, int $examId): string
     {
-        if ($examId <= 0 || !$userId) {
-            return false;
-        }
-
-        $query = AnswerKey::query()
-            ->where('exam_id', $examId)
-            ->where('user_id', $userId);
-
-        if ($examSubjectId) {
-            $query->where(function ($scoped) use ($examSubjectId) {
-                $scoped->where('exam_subject_id', $examSubjectId)
-                    ->orWhereNull('exam_subject_id');
-            });
-        }
-
-        $answerKey = $query->latest('id')->first();
-        if (!$answerKey) {
-            return false;
-        }
-
-        $answers = collect((array) ($answerKey->answers ?? []))
-            ->filter(fn ($value) => trim((string) $value) !== '');
-
-        return $answers->count() >= 100;
+        return $sheetId . '00' . $examId;
     }
 
-    private function buildSheetCode(int $studentId, int $sheetId, int $examId): string
+    private function formatSheetForPdf(AnswerSheet $sheet): array
     {
-        return implode('-', [
-            max(0, $studentId),
-            max(0, $sheetId),
-            max(0, $examId),
-        ]);
-    }
-
-    private function formatSheetForPdf(AnswerSheet $sheet, array $context = []): array
-    {
-        $sheet->loadMissing('exam.program');
-
-        $examType = (string) ($context['exam_type'] ?? $sheet->exam?->Exam_Type ?? '');
-        $isScreening = $this->isScreeningExamType($examType);
-        $programName = trim((string) (
-            $context['program_name']
-            ?? $sheet->exam?->program?->Program_Name
-            ?? ''
-        ));
-        $sheetTitle = $isScreening
-            ? ($programName !== ''
-                ? (strtoupper($programName) . ' SCREENING EXAM ANSWER SHEET')
-                : 'SCREENING EXAM ANSWER SHEET')
-            : 'COLLEGE ADMISSION TEST ANSWER SHEET';
-
-        $sheetCode = $sheet->qr_payload ?: $this->buildSheetCode(
-            (int) ($sheet->user_id ?? 0),
-            (int) $sheet->id,
-            (int) $sheet->exam_id
-        );
+        $sheetCode = $sheet->qr_payload ?: $this->buildSheetCode($sheet->id, $sheet->exam_id);
 
         $qrSvg = QrCode::format('svg')
             ->size(100)
@@ -749,138 +497,7 @@ class AnswerSheetController extends Controller
             'sheetCode' => $sheetCode,
             'sheetQrMime' => 'image/svg+xml',
             'sheetQr' => base64_encode($qrSvg),
-            'student_name' => (string) ($context['student_name'] ?? ''),
-            'last_name' => (string) ($context['last_name'] ?? ''),
-            'first_name' => (string) ($context['first_name'] ?? ''),
-            'middle_initial' => (string) ($context['middle_initial'] ?? ''),
-            'extension_name' => (string) ($context['extension_name'] ?? ''),
-            'student_number' => (string) ($context['student_number'] ?? ''),
-            'scheduled_date' => (string) ($context['scheduled_date'] ?? ''),
-            'program_choices' => array_values(array_pad(array_slice((array) ($context['program_choices'] ?? []), 0, 3), 3, '')),
-            'show_program_choices' => !$isScreening,
-            'sheet_title' => $sheetTitle,
         ];
-    }
-
-    private function sheetPdfContext(AnswerSheet $sheet): array
-    {
-        if (!(int) $sheet->user_id) {
-            return [];
-        }
-
-        $student = DB::table('users as u')
-            ->leftJoin('students as st', 'st.user_id', '=', 'u.id')
-            ->leftJoin('student_exam_schedules as ses', function ($join) use ($sheet) {
-                $join->on('ses.user_id', '=', 'u.id')
-                    ->where('ses.exam_id', '=', $sheet->exam_id);
-            })
-            ->leftJoin('exam_schedules as sch', 'sch.id', '=', 'ses.exam_schedule_id')
-            ->where('u.id', $sheet->user_id)
-            ->select([
-                'u.first_name',
-                'u.middle_initial',
-                'u.last_name',
-                'u.extension_name',
-                'st.Student_Number',
-                'sch.date as scheduled_date',
-            ])
-            ->orderByDesc('ses.id')
-            ->first();
-
-        if (!$student) {
-            return [];
-        }
-
-        return [
-            'student_name' => $this->formatStudentNameFromRow($student),
-            'last_name' => (string) ($student->last_name ?? ''),
-            'first_name' => (string) ($student->first_name ?? ''),
-            'middle_initial' => (string) ($student->middle_initial ?? ''),
-            'extension_name' => (string) ($student->extension_name ?? ''),
-            'student_number' => (string) ($student->Student_Number ?? ''),
-            'scheduled_date' => $student->scheduled_date
-                ? \Carbon\Carbon::parse($student->scheduled_date)->format('F j, Y')
-                : '',
-            'program_choices' => $this->programChoicesMapForUsers([(int) $sheet->user_id])[(int) $sheet->user_id] ?? [],
-            'exam_type' => (string) ($sheet->exam?->Exam_Type ?? ''),
-            'program_name' => (string) ($sheet->exam?->program?->Program_Name ?? ''),
-        ];
-    }
-
-    private function scheduledStudentsForScheduleQuery(int $scheduleId, int $examId)
-    {
-        return DB::table('student_exam_schedules as ses')
-            ->join('exam_schedules as sch', 'sch.id', '=', 'ses.exam_schedule_id')
-            ->join('users as u', 'u.id', '=', 'ses.user_id')
-            ->leftJoin('students as st', 'st.user_id', '=', 'u.id')
-            ->where('ses.exam_schedule_id', $scheduleId)
-            ->where('ses.exam_id', $examId)
-            ->where('u.role', 'student')
-            ->orderBy('u.last_name', 'asc')
-            ->orderBy('u.first_name', 'asc')
-            ->select([
-                'ses.user_id',
-                'ses.exam_schedule_id',
-                'sch.date as scheduled_date',
-                'sch.time as scheduled_time',
-                'sch.location as scheduled_location',
-                'u.first_name',
-                'u.middle_initial',
-                'u.last_name',
-                'u.extension_name',
-                'st.Student_Number',
-            ]);
-    }
-
-    private function programChoicesMapForUsers(array $userIds): array
-    {
-        $ids = collect($userIds)->map(fn ($id) => (int) $id)->filter()->unique()->values();
-        if ($ids->isEmpty()) {
-            return [];
-        }
-
-        return Recommendation::query()
-            ->join('programs', 'programs.id', '=', 'recommendations.program_id')
-            ->whereIn('recommendations.user_id', $ids->all())
-            ->where('recommendations.type', self::TYPE_STUDENT_CHOICE)
-            ->orderBy('recommendations.user_id')
-            ->orderBy('recommendations.rank')
-            ->get([
-                'recommendations.user_id',
-                'recommendations.rank',
-                'programs.Program_Name as program_name',
-            ])
-            ->groupBy('user_id')
-            ->map(function ($rows) {
-                $choices = [];
-                foreach ($rows as $row) {
-                    $rankIndex = max(0, ((int) ($row->rank ?? 1)) - 1);
-                    $choices[$rankIndex] = trim((string) ($row->program_name ?? ''));
-                }
-
-                return array_values(array_pad(array_slice($choices, 0, 3), 3, ''));
-            })
-            ->all();
-    }
-
-    private function formatStudentNameFromRow($row): string
-    {
-        $name = trim(
-            trim((string) ($row->last_name ?? '')) . ', ' .
-            trim((string) ($row->first_name ?? ''))
-        );
-
-        $middle = trim((string) ($row->middle_initial ?? ''));
-        if ($middle !== '') {
-            $name .= ' ' . $middle;
-        }
-
-        $extension = trim((string) ($row->extension_name ?? ''));
-        if ($extension !== '') {
-            $name .= ' ' . $extension;
-        }
-
-        return trim($name, ', ');
     }
 
     private function formatTermSheetForPdf(

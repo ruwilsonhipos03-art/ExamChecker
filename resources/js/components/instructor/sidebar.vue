@@ -37,6 +37,13 @@
                     <router-link to="/instructor/exams" class="sub-item">
                         <i class="bi bi-file-earmark-text"></i> Exam
                     </router-link>
+
+                    <router-link to="/instructor/keys" class="sub-item">
+                        <i class="bi bi-key-fill"></i> Answer Key
+                    </router-link>
+                    <router-link to="/instructor/generate" class="sub-item">
+                        <i class="bi bi-file-earmark-plus-fill"></i> Generate Sheet
+                    </router-link>
                     <router-link
                         to="/instructor/reports"
                         class="sub-item"

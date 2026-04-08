@@ -140,12 +140,6 @@ const isLoading = ref(false);
 const activities = ref([]);
 const allActionOptions = ref([
     'student_registered',
-    'student_created',
-    'student_updated',
-    'student_deleted',
-    'employee_created',
-    'employee_updated',
-    'employee_deleted',
     'screening_exam_taken',
     'exam_created',
     'exam_updated',
@@ -196,12 +190,6 @@ const prettyAction = (action) => {
 const actionIcon = (action) => {
     const map = {
         student_registered: 'bi bi-person-plus-fill',
-        student_created: 'bi bi-person-plus-fill',
-        student_updated: 'bi bi-person-gear',
-        student_deleted: 'bi bi-person-dash-fill',
-        employee_created: 'bi bi-person-workspace',
-        employee_updated: 'bi bi-person-gear',
-        employee_deleted: 'bi bi-person-dash-fill',
         screening_exam_taken: 'bi bi-person-check-fill',
         exam_created: 'bi bi-file-earmark-plus-fill',
         exam_updated: 'bi bi-pencil-square',

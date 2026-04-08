@@ -9,7 +9,6 @@ class Exam extends Model
     protected $fillable = [
         'Exam_Title',
         'Exam_Type',
-        'description',
         'program_id',
         'created_by'
     ];

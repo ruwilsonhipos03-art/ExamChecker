@@ -72,6 +72,27 @@
                                 <div class="text-muted small fw-bold">ROLE</div>
                                 <div class="fw-semibold">{{ formattedRole }}</div>
                             </div>
+
+                            <template v-if="isStudent">
+                                <div class="col-md-6">
+                                    <div class="text-muted small fw-bold">STUDENT NUMBER</div>
+                                    <div class="fw-semibold">{{ studentNumber || '-' }}</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="text-muted small fw-bold">STUDENT QR</div>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div v-if="qrLoading" class="text-muted small">Loading QR...</div>
+                                        <img
+                                            v-else-if="studentQrSvg"
+                                            :src="`data:image/svg+xml;base64,${studentQrSvg}`"
+                                            alt="Student QR"
+                                            width="120"
+                                            height="120"
+                                        >
+                                        <div v-else class="text-muted small">No QR available.</div>
+                                    </div>
+                                </div>
+                            </template>
                         </div>
 
                         <div class="border-top pt-4">
@@ -110,7 +131,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import axios from 'axios';
 
 const sending = ref(false);
@@ -119,6 +140,9 @@ const codeSent = ref(false);
 const code = ref('');
 const emailSaving = ref(false);
 const profileSaving = ref(false);
+const studentNumber = ref('');
+const studentQrSvg = ref('');
+const qrLoading = ref(false);
 
 const user = ref({
     first_name: '',
@@ -179,6 +203,7 @@ loadUser();
 
 const emailInput = ref(user.value.email || '');
 
+const isStudent = computed(() => user.value.role === 'student');
 const canEditName = computed(() => user.value.role === 'admin');
 const isVerified = computed(() => Boolean(user.value.email_verified_at));
 
@@ -279,6 +304,23 @@ const verifyCode = async () => {
     }
 };
 
+const loadStudentQr = async () => {
+    if (!isStudent.value) return;
+
+    qrLoading.value = true;
+    try {
+        const { data } = await axios.get('/api/student/qr');
+        studentNumber.value = data?.student_number || '';
+        studentQrSvg.value = data?.student_qr_svg || '';
+    } catch (_) {
+        studentNumber.value = '';
+        studentQrSvg.value = '';
+    } finally {
+        qrLoading.value = false;
+    }
+};
+
+onMounted(loadStudentQr);
 </script>
 
 <style scoped>

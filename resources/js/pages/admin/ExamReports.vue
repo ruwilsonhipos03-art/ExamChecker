@@ -75,7 +75,7 @@
                             <tr v-else-if="filteredRows.length === 0">
                                 <td colspan="6" class="text-center py-4 text-muted">No exam reports found.</td>
                             </tr>
-                            <tr v-else v-for="(row, index) in filteredRows" :key="row.id" class="clickable-row" @click="openExamDetail(row)">
+                            <tr v-else v-for="(row, index) in filteredRows" :key="row.id">
                                 <td class="ps-3">{{ index + 1 }}</td>
                                 <td class="fw-semibold">{{ row.exam_title || '-' }}</td>
                                 <td>
@@ -84,50 +84,6 @@
                                 <td>{{ row.program_name || 'N/A' }}</td>
                                 <td>{{ row.examiner_name || 'N/A' }}</td>
                                 <td>{{ formatDate(row.created_at) }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <div v-if="isDetailOpen" class="popup-overlay" @click.self="closeExamDetail">
-            <div class="popup-card">
-                <div class="d-flex justify-content-between align-items-start mb-3">
-                    <div>
-                        <h5 class="fw-bold mb-1">Exam Takers</h5>
-                        <div class="text-muted small">
-                            {{ selectedExam?.exam_title || '-' }} | {{ selectedExam?.exam_type || '-' }} | {{ selectedExam?.program_name || 'N/A' }}
-                        </div>
-                    </div>
-                    <button type="button" class="btn-close" @click="closeExamDetail"></button>
-                </div>
-
-                <div v-if="detailLoading" class="text-center text-muted py-4">Loading exam takers...</div>
-                <div v-else-if="detailError" class="alert alert-danger py-2 mb-0">{{ detailError }}</div>
-                <div v-else class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>No.</th>
-                                <th>Student</th>
-                                <th>Status</th>
-                                <th class="text-end">Score</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-if="detailRows.length === 0">
-                                <td colspan="4" class="text-center py-4 text-muted">No students found for this exam.</td>
-                            </tr>
-                            <tr v-for="(student, index) in detailRows" :key="student.answer_sheet_id">
-                                <td>{{ index + 1 }}</td>
-                                <td class="fw-semibold">{{ student.student_full_name }}</td>
-                                <td>
-                                    <span class="badge" :class="student.status === 'checked' ? 'text-bg-success' : 'text-bg-warning'">
-                                        {{ student.status || 'N/A' }}
-                                    </span>
-                                </td>
-                                <td class="text-end fw-bold">{{ student.score ?? 'Pending' }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -143,11 +99,6 @@ import axios from 'axios';
 
 const loading = ref(false);
 const rows = ref([]);
-const isDetailOpen = ref(false);
-const detailLoading = ref(false);
-const detailError = ref('');
-const selectedExam = ref(null);
-const detailRows = ref([]);
 
 const filters = ref({
     search: '',
@@ -244,32 +195,6 @@ const loadExamReports = async () => {
     }
 };
 
-const openExamDetail = async (row) => {
-    isDetailOpen.value = true;
-    detailLoading.value = true;
-    detailError.value = '';
-    selectedExam.value = row;
-    detailRows.value = [];
-
-    try {
-        const { data } = await axios.get(`/api/admin/exam-reports/${row.id}`);
-        selectedExam.value = data?.data?.exam || row;
-        detailRows.value = Array.isArray(data?.data?.students) ? data.data.students : [];
-    } catch (error) {
-        detailError.value = error?.response?.data?.message || 'Failed to load exam takers.';
-    } finally {
-        detailLoading.value = false;
-    }
-};
-
-const closeExamDetail = () => {
-    isDetailOpen.value = false;
-    detailLoading.value = false;
-    detailError.value = '';
-    selectedExam.value = null;
-    detailRows.value = [];
-};
-
 onMounted(loadExamReports);
 </script>
 
@@ -281,30 +206,5 @@ onMounted(loadExamReports);
 
 .btn-emerald:hover {
     background-color: #059669;
-}
-
-.clickable-row {
-    cursor: pointer;
-}
-
-.popup-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.45);
-    z-index: 2000;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 16px;
-}
-
-.popup-card {
-    width: min(920px, 100%);
-    max-height: 88vh;
-    overflow: auto;
-    background: #fff;
-    border-radius: 16px;
-    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.2);
-    padding: 20px;
 }
 </style>

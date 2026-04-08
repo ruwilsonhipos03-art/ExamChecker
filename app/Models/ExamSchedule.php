@@ -13,8 +13,6 @@ class ExamSchedule extends Model
         'date',
         'time',
         'location',
-        'schedule_name',
         'capacity',
-        'schedule_type',
     ];
 }

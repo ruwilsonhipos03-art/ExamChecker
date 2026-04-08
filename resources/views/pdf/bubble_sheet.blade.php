@@ -70,81 +70,35 @@
 
         /* Info fields */
         .info-fields {
-            margin-top: 40px;
+            margin-top: 100px;
             border: 1px solid #000;
             padding: 6px;
             font-size: 10px;
         }
 
         .info-row {
-            white-space: nowrap;
-            margin-bottom: 6px;
-            font-size: 10px;
-        }
-
-        .info-cell {
-            display: inline-block;
-            vertical-align: bottom;
-            margin-right: 4px;
-        }
-
-        .info-cell.name-first {
-            width: 33%;
-        }
-
-        .info-cell.name-middle {
-            width: 17%;
-        }
-
-        .info-cell.name-last {
-            width: 24%;
-        }
-
-        .info-cell.extension {
-            width: 11%;
-        }
-
-        .info-cell.program-prefix {
-            width: 14%;
-        }
-
-        .info-cell.choice {
-            width: 27%;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3px;
         }
 
         .info-row label {
+            width: 200px;
             font-weight: bold;
-            white-space: nowrap;
         }
 
-        .field-value {
-            display: inline-block;
+        .info-row input {
+            border: none;
             border-bottom: 1px solid #000;
-            min-height: 12px;
-            padding: 0 2px 1px;
-            overflow: hidden;
-            white-space: nowrap;
-            text-overflow: ellipsis;
+            width: 180px;
+            height: 12px;
+            padding-bottom: 5px;
         }
 
-        .info-cell.name-first .field-value {
-            width: 68%;
-        }
-
-        .info-cell.name-middle .field-value {
-            width: 42%;
-        }
-
-        .info-cell.name-last .field-value {
-            width: 62%;
-        }
-
-        .info-cell.extension .field-value {
-            width: 44%;
-        }
-
-        .info-cell.choice .field-value {
-            width: 54%;
+        input[name="middle_initial"],
+        input[name="extension"] {
+            width: 40px;
+            text-align: center;
         }
 
         /* Bubble Section */
@@ -217,10 +171,8 @@
             </div>
 
             <div class="title-section">
-                <img src="{{ public_path('images/acc-logo.png') }}" alt="Acc Logo" style="width:50px; height:auto;">
-                <h1 style="font-size: 16px;">Abuyog Community College</h1>
-                <h2>Abuyog, Leyte</h2>
-                <h2>{{ $sheet['sheet_title'] ?? 'COLLEGE ADMISSION TEST ANSWER SHEET' }}</h2>
+                <h1 style="font-size: 16px;">College Entrance Exam</h1>
+                <h2>Answer Sheet</h2>
             </div>
 
             <div class="shading-instructions">
@@ -233,42 +185,14 @@
         <!-- Info fields -->
         <div class="info-fields">
             <div class="info-row">
-                <div class="info-cell name-last">
-                    <label>Last Name:</label>
-                    <span class="field-value">{{ $sheet['last_name'] ?? '' }}</span>
-                </div>
-                <div class="info-cell name-first">
-                    <label>First Name:</label>
-                    <span class="field-value">{{ $sheet['first_name'] ?? '' }}</span>
-                </div>
-                <div class="info-cell name-middle">
-                    <label>Middle Initial:</label>
-                    <span class="field-value">{{ $sheet['middle_initial'] ?? '' }}</span>
-                </div>
-                <div class="info-cell extension">
-                    <label>Suffix:</label>
-                    <span class="field-value">{{ $sheet['extension_name'] ?? '' }}</span>
-                </div>
+                <label>Last Name:</label> <input type="text" name="last_name">
+                <label>First Name:</label> <input type="text" name="first_name">
+                <label>Middle Initial:</label> <input type="text" name="middle_initial">
+                <label>Extension:</label> <input type="text" name="extension">
             </div>
-            @if(($sheet['show_program_choices'] ?? true))
-                <div class="info-row">
-                    <div class="info-cell program-prefix">
-                        <label>Program Choice:</label>
-                    </div>
-                    <div class="info-cell choice">
-                        <label>1st Choice:</label>
-                        <span class="field-value">{{ $sheet['program_choices'][0] ?? '' }}</span>
-                    </div>
-                    <div class="info-cell choice">
-                        <label>2nd Choice:</label>
-                        <span class="field-value">{{ $sheet['program_choices'][1] ?? '' }}</span>
-                    </div>
-                    <div class="info-cell choice">
-                        <label>3rd Choice:</label>
-                        <span class="field-value">{{ $sheet['program_choices'][2] ?? '' }}</span>
-                    </div>
-                </div>
-            @endif
+            <div class="info-row">
+                <label>Date:</label> <input type="text" name="date">
+            </div>
         </div>
 
         <!-- Bubble grid -->

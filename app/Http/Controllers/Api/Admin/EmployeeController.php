@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Employee;
 use App\Models\Program;
-use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -94,7 +93,6 @@ class EmployeeController extends Controller
 
     public function store(Request $request)
     {
-        $adminUser = $request->user();
         $orgTable = $this->orgUnitTable();
         $validated = $request->validate([
             'first_name'      => 'required|string|max:255',
@@ -113,7 +111,7 @@ class EmployeeController extends Controller
 
         $this->validateRoleAssignments($validated);
 
-        return DB::transaction(function () use ($validated, $adminUser) {
+        return DB::transaction(function () use ($validated) {
             $lastEmployee = Employee::orderBy('id', 'desc')->first();
             $nextId = $lastEmployee ? ((int) str_replace('EM-', '', $lastEmployee->Employee_Number)) + 1 : 1;
             $generatedID = 'EM-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
@@ -131,27 +129,12 @@ class EmployeeController extends Controller
                 'role'           => $roleString,
             ]);
 
-            $employee = $user->employee()->create([
+            $user->employee()->create([
                 'Employee_Number' => $generatedID,
                 $this->employeeCollegeForeignKey() => $validated['college_id'],
                 'office_id'       => $validated['office_id'],
                 'program_id'      => $validated['program_id'] ?? null,
             ]);
-
-            ActivityLogger::log(
-                (int) ($adminUser?->id ?? 0),
-                'admin',
-                'employee_created',
-                'employee',
-                (int) $employee->id,
-                'Admin created employee account',
-                trim($user->last_name . ', ' . $user->first_name) . ' was added as an employee account.',
-                [
-                    'employee_number' => (string) $generatedID,
-                    'username' => (string) $user->username,
-                    'roles' => $validated['roles'],
-                ]
-            );
 
             return response()->json($user->load('employee.college', 'employee.office', 'employee.program'), 201);
         });
@@ -159,7 +142,6 @@ class EmployeeController extends Controller
 
     public function update(Request $request, $id)
     {
-        $adminUser = $request->user();
         $employee = Employee::findOrFail($id);
         $user = $employee->user;
         $orgTable = $this->orgUnitTable();
@@ -180,7 +162,7 @@ class EmployeeController extends Controller
 
         $this->validateRoleAssignments($validated);
 
-        DB::transaction(function () use ($validated, $employee, $user, $collegeFk, $adminUser) {
+        DB::transaction(function () use ($validated, $employee, $user, $collegeFk) {
             $roleString = implode(',', $validated['roles']);
 
             $user->update([
@@ -199,21 +181,6 @@ class EmployeeController extends Controller
                 'office_id'       => $validated['office_id'],
                 'program_id'      => $validated['program_id'] ?? null,
             ]);
-
-            ActivityLogger::log(
-                (int) ($adminUser?->id ?? 0),
-                'admin',
-                'employee_updated',
-                'employee',
-                (int) $employee->id,
-                'Admin updated employee account',
-                trim($user->last_name . ', ' . $user->first_name) . ' employee details were updated.',
-                [
-                    'employee_number' => (string) ($employee->Employee_Number ?? ''),
-                    'username' => (string) $user->username,
-                    'roles' => $validated['roles'],
-                ]
-            );
         });
 
         return response()->json($employee->load('user', 'department', 'office', 'program'));
@@ -222,22 +189,6 @@ class EmployeeController extends Controller
     public function destroy($id)
     {
         $employee = Employee::findOrFail($id);
-        $user = $employee->user;
-
-        ActivityLogger::log(
-            (int) (request()->user()?->id ?? 0),
-            'admin',
-            'employee_deleted',
-            'employee',
-            (int) $employee->id,
-            'Admin deleted employee account',
-            trim(($user?->last_name ?? '') . ', ' . ($user?->first_name ?? '')) . ' employee account was deleted.',
-            [
-                'employee_number' => (string) ($employee->Employee_Number ?? ''),
-                'username' => (string) ($user?->username ?? ''),
-            ]
-        );
-
         if ($employee->user) {
             $employee->user->delete();
         }

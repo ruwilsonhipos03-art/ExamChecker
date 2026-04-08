@@ -5,7 +5,8 @@
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                     <div>
                         <h4 class="fw-bold mb-1 text-dark">Users</h4>
-                        <p class="text-muted small mb-0">All people who use the system, including staff and students.</p>
+                        <p class="text-muted small mb-0">All people who use the system, including staff, students, and
+                            applicants.</p>
                     </div>
                     <div class="d-flex flex-wrap gap-2">
                         <button @click="printUsers" class="btn btn-outline-secondary fw-bold px-4 shadow-sm"
@@ -13,7 +14,7 @@
                             <i class="bi bi-printer me-2"></i>Print
                         </button>
                         <button @click="openModal()" class="btn btn-emerald fw-bold px-4 shadow-sm">
-                            <i class="bi bi-person-plus me-2"></i>Add User
+                            <i class="bi bi-person-plus me-2"></i>Add Employee
                         </button>
                     </div>
                 </div>
@@ -144,14 +145,14 @@
                                     </span>
                                 </td>
                                 <td class="text-end pe-3">
-                                    <template v-if="canManageUser(row)">
+                                    <template v-if="canManageEmployee(row)">
                                         <button @click="openModal(row)" class="btn btn-icon btn-light-success me-2"
                                             title="Edit">
                                             <i class="bi bi-pencil-square"></i>
                                         </button>
-                                        <button @click="deleteUser(row)" class="btn btn-icon btn-light-danger"
-                                            :disabled="deletingId === deleteKey(row)" title="Delete">
-                                            <span v-if="deletingId === deleteKey(row)"
+                                        <button @click="deleteEmployee(row)" class="btn btn-icon btn-light-danger"
+                                            :disabled="deletingId === row.employee_id" title="Delete">
+                                            <span v-if="deletingId === row.employee_id"
                                                 class="spinner-border spinner-border-sm"></span>
                                             <i v-else class="bi bi-trash3"></i>
                                         </button>
@@ -169,48 +170,28 @@
             <div class="modal-dialog modal-dialog-centered modal-lg">
                 <div class="modal-content border-0 shadow">
                     <div class="modal-header bg-emerald text-white border-0">
-                        <h5 class="modal-title fw-bold">{{ modalTitle }}</h5>
+                        <h5 class="modal-title fw-bold">{{ editMode ? 'Edit Employee' : 'New Employee Account' }}</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
-                    <form @submit.prevent="saveUser">
+                    <form @submit.prevent="saveEmployee">
                         <div class="modal-body p-4">
-                            <div v-if="!editMode" class="mb-4">
-                                <label class="form-label small fw-bold text-uppercase">Add User Type</label>
-                                <div class="d-flex flex-wrap gap-2">
-                                    <button
-                                        type="button"
-                                        class="btn fw-bold"
-                                        :class="accountType === 'employee' ? 'btn-emerald' : 'btn-outline-secondary'"
-                                        @click="setAccountType('employee')"
-                                    >
-                                        Add Employee
-                                    </button>
-                                    <button
-                                        type="button"
-                                        class="btn fw-bold"
-                                        :class="accountType === 'student' ? 'btn-emerald' : 'btn-outline-secondary'"
-                                        @click="setAccountType('student')"
-                                    >
-                                        Add Student
-                                    </button>
-                                </div>
-                            </div>
-
-                            <template v-if="accountType === 'employee'">
                             <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label small fw-bold text-uppercase label-required">First Name</label>
+                                <div class="col-md-5">
+                                    <label class="form-label small fw-bold text-uppercase label-required">First
+                                        Name</label>
                                     <input v-model="form.first_name" type="text" class="form-control" required>
                                 </div>
-                                <div class="col-md-6">
-                                    <label class="form-label small fw-bold text-uppercase">Middle Initial</label>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold text-uppercase">M.I.</label>
                                     <input v-model="form.middle_initial" type="text" class="form-control" maxlength="2">
                                 </div>
-                                <div class="col-md-6">
-                                    <label class="form-label small fw-bold text-uppercase label-required">Last Name</label>
+                                <div class="col-md-5">
+                                    <label class="form-label small fw-bold text-uppercase label-required">Last
+                                        Name</label>
                                     <input v-model="form.last_name" type="text" class="form-control" required>
                                 </div>
-                                <div class="col-md-6">
+
+                                <div class="col-md-12">
                                     <label class="form-label small fw-bold text-uppercase">Extension Name</label>
                                     <input v-model="form.extension_name" type="text" class="form-control"
                                         maxlength="10">
@@ -317,65 +298,12 @@
                                     <div class="invalid-feedback">Passwords do not match.</div>
                                 </div>
                             </div>
-                            </template>
-
-                            <template v-else>
-                                <div class="row g-3">
-                                    <div class="col-md-6">
-                                        <label class="form-label small fw-bold text-uppercase label-required">First Name</label>
-                                        <input v-model="studentForm.first_name" type="text" class="form-control" required>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label small fw-bold text-uppercase">Middle Initial</label>
-                                        <input v-model="studentForm.middle_initial" type="text" class="form-control" maxlength="2">
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label small fw-bold text-uppercase label-required">Last Name</label>
-                                        <input v-model="studentForm.last_name" type="text" class="form-control" required>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label small fw-bold text-uppercase">Extension Name</label>
-                                        <input v-model="studentForm.extension_name" type="text" class="form-control" maxlength="10">
-                                    </div>
-                                    <div class="col-md-12">
-                                        <label class="form-label small fw-bold text-uppercase label-required">Email Address</label>
-                                        <input v-model="studentForm.email" type="email" class="form-control" required>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label small fw-bold text-uppercase label-required">Program Choice 1</label>
-                                        <select v-model="studentForm.program_id" class="form-select" required>
-                                            <option value="">Select Program</option>
-                                            <option v-for="program in programs" :key="`choice1-${program.id}`" :value="String(program.id)">
-                                                {{ program.Program_Name }}
-                                            </option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label small fw-bold text-uppercase">Program Choice 2</label>
-                                        <select v-model="studentForm.program_choice_2" class="form-select">
-                                            <option value="">Select Program</option>
-                                            <option v-for="program in programs" :key="`choice2-${program.id}`" :value="String(program.id)">
-                                                {{ program.Program_Name }}
-                                            </option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label small fw-bold text-uppercase">Program Choice 3</label>
-                                        <select v-model="studentForm.program_choice_3" class="form-select">
-                                            <option value="">Select Program</option>
-                                            <option v-for="program in programs" :key="`choice3-${program.id}`" :value="String(program.id)">
-                                                {{ program.Program_Name }}
-                                            </option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </template>
                         </div>
                         <div class="modal-footer border-0 p-4 pt-0">
                             <button type="button" class="btn btn-light fw-bold" data-bs-dismiss="modal"
                                 :disabled="isSaving">Cancel</button>
                             <button type="submit" class="btn btn-emerald px-4 fw-bold"
-                                :disabled="saveDisabled">
+                                :disabled="isSaving || form.roles.length === 0 || form.password !== form.password_confirmation">
                                 <span v-if="isSaving" class="spinner-border spinner-border-sm me-2"></span>
                                 {{ isSaving ? 'Saving...' : 'Save Data' }}
                             </button>
@@ -401,11 +329,9 @@ const offices = ref([]);
 const programs = ref([]);
 const editMode = ref(false);
 const currentEmployeeId = ref(null);
-const currentStudentId = ref(null);
 const modalRef = ref(null);
 const isConfirmFocused = ref(false);
 const roleSelectionType = ref('staff');
-const accountType = ref('employee');
 let modalInstance = null;
 
 const filters = reactive({
@@ -431,49 +357,21 @@ const form = reactive({
     roles: [],
 });
 
-const studentForm = reactive({
-    first_name: '',
-    middle_initial: '',
-    last_name: '',
-    extension_name: '',
-    email: '',
-    program_id: '',
-    program_choice_2: '',
-    program_choice_3: '',
-});
-
 const passwordsDoNotMatch = computed(() => form.password !== form.password_confirmation);
 const showPassError = computed(() => isConfirmFocused.value && passwordsDoNotMatch.value && form.password_confirmation.length > 0);
-const modalTitle = computed(() => {
-    if (editMode.value) {
-        return accountType.value === 'student' ? 'Edit Student' : 'Edit Employee';
-    }
-
-    return accountType.value === 'student' ? 'New Student Account' : 'New Employee Account';
-});
-const saveDisabled = computed(() => {
-    if (accountType.value === 'student') {
-        return isSaving.value
-            || !studentForm.first_name
-            || !studentForm.last_name
-            || !studentForm.email
-            || !studentForm.program_id;
-    }
-
-    return isSaving.value || form.roles.length === 0 || form.password !== form.password_confirmation;
-});
 
 const summaryCards = computed(() => ([
     { label: 'All Users', value: users.value.length.toLocaleString() },
     { label: 'Staff', value: users.value.filter((row) => row.user_kind === 'employee').length.toLocaleString() },
     { label: 'Students', value: users.value.filter((row) => row.roles.includes('student')).length.toLocaleString() },
-    { label: 'Admins', value: users.value.filter((row) => row.roles.includes('admin')).length.toLocaleString() },
+    { label: 'Applicants', value: users.value.filter((row) => row.is_applicant).length.toLocaleString() },
 ]));
 
 const categoryOptions = computed(() => ([
     { value: 'users', label: 'All Users' },
     { value: 'staff', label: 'Staff' },
     { value: 'students', label: 'Students' },
+    { value: 'applicants', label: 'Applicants' },
     { value: 'instructors', label: 'Instructors' },
     { value: 'college_deans', label: 'College Deans' },
     { value: 'entrance_examiners', label: 'Entrance Examiners' },
@@ -562,6 +460,7 @@ const filteredRows = computed(() => {
 
 const matchesCategory = (row, category) => {
     if (category === 'users') return true;
+    if (category === 'applicants') return categoryLabel(row) === 'Applicant';
     if (category === 'students') return categoryLabel(row) === 'Student';
     if (category === 'instructors') return row.roles.includes('instructor');
     if (category === 'college_deans') return row.roles.includes('college_dean');
@@ -574,6 +473,7 @@ const matchesCategory = (row, category) => {
 const prettyRole = (role) => String(role || '').replaceAll('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 
 const categoryLabel = (row) => {
+    if (row.is_applicant) return 'Applicant';
     if (row.roles.includes('admin')) return 'Admin';
     if (row.user_kind === 'employee') return 'Staff';
     if (row.roles.includes('student')) return 'Student';
@@ -581,6 +481,7 @@ const categoryLabel = (row) => {
 };
 
 const categoryBadgeClass = (row) => {
+    if (row.is_applicant) return 'bg-warning-subtle text-warning border border-warning-subtle';
     if (row.roles.includes('admin')) return 'bg-danger-subtle text-danger border border-danger-subtle';
     if (row.user_kind === 'employee') return 'bg-info-subtle text-info border border-info-subtle';
     if (row.roles.includes('student')) return 'bg-success-subtle text-success border border-success-subtle';
@@ -594,8 +495,8 @@ const studentStatus = (row) => {
 
     if (!row.has_verified_email) {
         return {
-            label: 'Scheduled for Entrance Exam',
-            className: 'bg-info-subtle text-info border-info-subtle',
+            label: 'Email Not Verified',
+            className: 'bg-danger-subtle text-danger border-danger-subtle',
         };
     }
 
@@ -628,8 +529,7 @@ const studentStatus = (row) => {
 
 const displayIdNumber = (row) => row.employee_number || row.student_number || `USER-${row.id}`;
 
-const canManageUser = (row) => Boolean(row.employee_id || row.student_profile_id);
-const deleteKey = (row) => row.employee_id ? `employee-${row.employee_id}` : row.student_profile_id ? `student-${row.student_profile_id}` : `user-${row.id}`;
+const canManageEmployee = (row) => Boolean(row.employee_id);
 
 const escapeHtml = (value) => {
     return String(value ?? '')
@@ -645,6 +545,7 @@ const printTitle = computed(() => {
         users: 'Users List',
         staff: 'Staffs List',
         students: 'Students List',
+        applicants: 'Applicants List',
         instructors: 'Staffs List',
         college_deans: 'Staffs List',
         entrance_examiners: 'Staffs List',
@@ -778,39 +679,6 @@ const resetForm = () => {
     });
 };
 
-const resetStudentForm = () => {
-    Object.assign(studentForm, {
-        first_name: '',
-        middle_initial: '',
-        last_name: '',
-        extension_name: '',
-        email: '',
-        program_id: '',
-        program_choice_2: '',
-        program_choice_3: '',
-    });
-};
-
-const setAccountType = (type) => {
-    if (editMode.value) {
-        return;
-    }
-
-    accountType.value = type;
-    isConfirmFocused.value = false;
-
-    if (type === 'employee') {
-        resetStudentForm();
-        resetForm();
-        roleSelectionType.value = 'staff';
-        syncAssignmentFields();
-        return;
-    }
-
-    resetForm();
-    resetStudentForm();
-};
-
 const handleRoleTypeChange = () => {
     form.roles = roleSelectionType.value === 'college_dean' ? ['college_dean'] : [];
     syncAssignmentFields();
@@ -876,13 +744,11 @@ const fetchOptions = async () => {
 };
 
 const openModal = (row = null) => {
-    editMode.value = Boolean(row?.employee_id || row?.student_profile_id);
+    editMode.value = Boolean(row?.employee_id);
     currentEmployeeId.value = row?.employee_id || null;
-    currentStudentId.value = row?.student_profile_id || null;
     isConfirmFocused.value = false;
 
     if (row?.employee_id) {
-        accountType.value = 'employee';
         roleSelectionType.value = row.roles.includes('college_dean') ? 'college_dean' : 'staff';
         Object.assign(form, {
             first_name: row.first_name || '',
@@ -898,24 +764,8 @@ const openModal = (row = null) => {
             password_confirmation: '',
             roles: [...row.roles].filter((role) => ['college_dean', 'instructor', 'entrance_examiner'].includes(role)),
         });
-    } else if (row?.student_profile_id) {
-        accountType.value = 'student';
-        resetForm();
-        resetStudentForm();
-        Object.assign(studentForm, {
-            first_name: row.first_name || '',
-            middle_initial: row.middle_initial || '',
-            last_name: row.last_name || '',
-            extension_name: row.extension_name || '',
-            email: row.email || '',
-            program_id: row.program_id ? String(row.program_id) : '',
-            program_choice_2: row.program_choice_2 ? String(row.program_choice_2) : '',
-            program_choice_3: row.program_choice_3 ? String(row.program_choice_3) : '',
-        });
     } else {
-        accountType.value = 'employee';
         resetForm();
-        resetStudentForm();
         roleSelectionType.value = 'staff';
     }
 
@@ -957,65 +807,8 @@ const saveEmployee = async () => {
     }
 };
 
-const saveStudent = async () => {
-    isSaving.value = true;
-    try {
-        const method = editMode.value ? 'put' : 'post';
-        const url = editMode.value ? `/api/admin/student-accounts/${currentStudentId.value}` : '/api/admin/student-accounts';
-        const { data } = await axios[method](url, {
-            first_name: studentForm.first_name,
-            middle_initial: studentForm.middle_initial,
-            last_name: studentForm.last_name,
-            extension_name: studentForm.extension_name,
-            email: studentForm.email,
-            program_id: Number(studentForm.program_id),
-            program_choice_2: studentForm.program_choice_2 ? Number(studentForm.program_choice_2) : null,
-            program_choice_3: studentForm.program_choice_3 ? Number(studentForm.program_choice_3) : null,
-        });
-
-        modalInstance?.hide();
-        await loadUsers();
-        if (editMode.value) {
-            window.Toast?.fire({ icon: 'success', title: 'Action successful' });
-        } else {
-            const schedule = data?.data?.schedule;
-            await window.Swal?.fire({
-                icon: 'success',
-                title: 'Student account created',
-                html: `
-                    <div class="text-start">
-                        <div><strong>Student Number:</strong> ${escapeHtml(data?.data?.student_number || '-')}</div>
-                        <hr>
-                        <div><strong>Exam:</strong> ${escapeHtml(schedule?.exam_title || '-')}</div>
-                        <div><strong>Date:</strong> ${escapeHtml(schedule?.date || '-')}</div>
-                        <div><strong>Time:</strong> ${escapeHtml(schedule?.time || '-')}</div>
-                        <div><strong>Location:</strong> ${escapeHtml(schedule?.location || '-')}</div>
-                    </div>
-                `,
-            });
-        }
-    } catch (error) {
-        window.Swal?.fire({
-            icon: 'error',
-            title: 'Action failed',
-            text: error?.response?.data?.message || 'Check your inputs.',
-        });
-    } finally {
-        isSaving.value = false;
-    }
-};
-
-const saveUser = async () => {
-    if (accountType.value === 'student') {
-        await saveStudent();
-        return;
-    }
-
-    await saveEmployee();
-};
-
-const deleteUser = async (row) => {
-    if (!canManageUser(row)) return;
+const deleteEmployee = async (row) => {
+    if (!row?.employee_id) return;
 
     const result = await window.Swal.fire({
         title: 'Are you sure?',
@@ -1028,13 +821,9 @@ const deleteUser = async (row) => {
 
     if (!result.isConfirmed) return;
 
-    deletingId.value = deleteKey(row);
+    deletingId.value = row.employee_id;
     try {
-        if (row.employee_id) {
-            await axios.delete(`/api/admin/employees/${row.employee_id}`);
-        } else {
-            await axios.delete(`/api/admin/student-accounts/${row.student_profile_id}`);
-        }
+        await axios.delete(`/api/admin/employees/${row.employee_id}`);
         await loadUsers();
         window.Toast?.fire({ icon: 'success', title: 'Deleted' });
     } catch (error) {
