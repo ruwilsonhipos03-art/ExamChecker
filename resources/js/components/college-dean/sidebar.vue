@@ -47,11 +47,8 @@
                     <router-link to="/college-dean/entrance/exams" class="sub-item">
                         <i class="bi bi-file-earmark-text"></i> Exam
                     </router-link>
-                    <router-link to="/college-dean/entrance/keys" class="sub-item">
-                        <i class="bi bi-key-fill"></i> Answer Key
-                    </router-link>
-                    <router-link to="/college-dean/entrance/generate" class="sub-item">
-                        <i class="bi bi-file-earmark-plus-fill"></i> Generate Sheet
+                    <router-link to="/college-dean/entrance/schedules" class="sub-item">
+                        <i class="bi bi-calendar-week"></i> Schedule
                     </router-link>
                     <router-link
                         to="/college-dean/entrance/reports"
@@ -81,12 +78,6 @@
                 <div class="sub-nav" v-if="isNormalOpen && !isCollapsed">
                     <router-link to="/college-dean/normal/exams" class="sub-item">
                         <i class="bi bi-file-earmark-text"></i> Exam
-                    </router-link>
-                    <router-link to="/college-dean/normal/keys" class="sub-item">
-                        <i class="bi bi-key-fill"></i> Answer Key
-                    </router-link>
-                    <router-link to="/college-dean/normal/generate" class="sub-item">
-                        <i class="bi bi-file-earmark-plus-fill"></i> Generate Sheet
                     </router-link>
                     <router-link
                         to="/college-dean/normal/reports"

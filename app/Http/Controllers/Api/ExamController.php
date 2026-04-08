@@ -219,6 +219,7 @@ class ExamController extends Controller
         $validated = $request->validate([
             'Exam_Title' => 'required|string|max:255',
             'Exam_Type'  => 'required|string|max:100',
+            'description' => 'nullable|string|max:1000',
             'program_id' => 'nullable|integer|exists:programs,id',
             'exam_subjects' => 'nullable|array|min:1',
             'exam_subjects.*.subject_id' => 'required|distinct|exists:subjects,id',
@@ -239,6 +240,7 @@ class ExamController extends Controller
             $exam = Exam::create([
                 'Exam_Title' => $validated['Exam_Title'],
                 'Exam_Type'  => $validated['Exam_Type'],
+                'description' => isset($validated['description']) ? trim((string) $validated['description']) : null,
                 'program_id' => isset($validated['program_id']) ? (int) $validated['program_id'] : null,
                 'created_by' => $employeeId,
             ]);
@@ -296,6 +298,7 @@ class ExamController extends Controller
         $validated = $request->validate([
             'Exam_Title' => 'required|string|max:255',
             'Exam_Type'  => 'required|string|max:100',
+            'description' => 'nullable|string|max:1000',
             'program_id' => 'nullable|integer|exists:programs,id',
             'exam_subjects' => 'nullable|array|min:1',
             'exam_subjects.*.subject_id' => 'required|distinct|exists:subjects,id',
@@ -309,6 +312,7 @@ class ExamController extends Controller
             $exam->update([
                 'Exam_Title' => $validated['Exam_Title'],
                 'Exam_Type' => $validated['Exam_Type'],
+                'description' => isset($validated['description']) ? trim((string) $validated['description']) : null,
                 'program_id' => isset($validated['program_id']) ? (int) $validated['program_id'] : null,
             ]);
 

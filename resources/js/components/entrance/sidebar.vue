@@ -37,12 +37,6 @@
                     <router-link to="/entrance/exams" class="sub-item">
                         <i class="bi bi-file-earmark-text"></i> Exam
                     </router-link>
-                    <router-link to="/entrance/keys" class="sub-item">
-                        <i class="bi bi-key-fill"></i> Answer Key
-                    </router-link>
-                    <router-link to="/entrance/generate" class="sub-item">
-                        <i class="bi bi-file-earmark-plus-fill"></i> Generate Sheet
-                    </router-link>
                     <router-link
                         to="/entrance/reports"
                         class="sub-item"

@@ -32,6 +32,7 @@
                             <tr>
                                 <th class="ps-4 py-3 text-secondary small fw-bold">No.</th>
                                 <th class="py-3 text-secondary small fw-bold">DATE & TIME</th>
+                                <th class="py-3 text-secondary small fw-bold">NAME</th>
                                 <th class="py-3 text-secondary small fw-bold">LOCATION</th>
                                 <th class="py-3 text-secondary small fw-bold">CURRENT EXAMINEES</th>
                                 <th class="py-3 text-secondary small fw-bold">CAPACITY</th>
@@ -53,6 +54,9 @@
                                         <div class="fw-semibold text-dark">{{ exam.date }}</div>
                                         <div class="small text-muted"><i class="bi bi-clock me-1"></i>{{ exam.time }}
                                         </div>
+                                    </td>
+                                    <td>
+                                        <span class="fw-semibold text-dark">{{ exam.schedule_name || '-' }}</span>
                                     </td>
                                     <td>
                                         <span class="badge bg-light text-dark border">
@@ -111,6 +115,11 @@
                                         :disabled="isSaving">
                                 </div>
                                 <div class="col-12">
+                                    <label class="form-label small fw-bold text-uppercase">Schedule Name</label>
+                                    <input v-model="form.schedule_name" type="text" class="form-control"
+                                        placeholder="e.g.2E" :disabled="isSaving">
+                                </div>
+                                <div class="col-12">
                                     <label class="form-label small fw-bold text-uppercase">Location</label>
                                     <input v-model="form.location" type="text" class="form-control"
                                         placeholder="e.g. Hall A, Room 302" required :disabled="isSaving">
@@ -156,6 +165,7 @@ const deletingId = ref(null);
 const form = reactive({
     date: '',
     time: '',
+    schedule_name: '',
     location: '',
     capacity: ''
 });
@@ -190,13 +200,14 @@ const openModal = (exam = null) => {
         Object.assign(form, {
             date: exam.date,
             time: exam.time,
+            schedule_name: exam.schedule_name || '',
             location: exam.location,
             capacity: exam.capacity
         });
     } else {
         editMode.value = false;
         currentId.value = null;
-        Object.assign(form, { date: '', time: '', location: '', capacity: '' });
+        Object.assign(form, { date: '', time: '', schedule_name: '', location: '', capacity: '' });
     }
     modalInstance.show();
 };

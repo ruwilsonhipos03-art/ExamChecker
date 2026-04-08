@@ -18,12 +18,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <div class="d-flex justify-content-between">
-                            <label class="form-label small fw-bold text-secondary">PASSWORD</label>
-                            <router-link to="/forgot-password" class="text-emerald text-decoration-none small fw-bold">
-                                Forgot Password?
-                            </router-link>
-                        </div>
+                        <label class="form-label small fw-bold text-secondary">PASSWORD</label>
                         <div class="input-group">
                             <input v-model="form.password" :type="showPassword ? 'text' : 'password'"
                                 class="form-control shadow-none border-2" required placeholder="••••••••"
@@ -49,13 +44,6 @@
                     </button>
                 </form>
 
-                <div class="text-center mt-4">
-                    <p class="small text-muted">
-                        Don't have an account?
-                        <router-link to="/register"
-                            class="text-emerald text-decoration-none fw-bold">Register</router-link>
-                    </p>
-                </div>
             </div>
         </div>
     </div>
@@ -85,8 +73,7 @@ const roleRoutes = {
     'admin': '/admin/dashboard',
     'college_dean': '/college-dean/dashboard',
     'instructor': '/instructor/dashboard',
-    'entrance_examiner': '/entrance/dashboard',
-    'student': '/student/dashboard'
+    'entrance_examiner': '/entrance/dashboard'
 };
 
 const handleLogin = async () => {
@@ -120,7 +107,6 @@ const handleLogin = async () => {
 
         // 5. Role-based Redirection
         const targetPath = roleRoutes[user.role];
-        const requiresEmailVerification = user.role === 'student' && !user.email_verified_at;
 
         if (targetPath) {
             if (window.Toast) {
@@ -129,18 +115,7 @@ const handleLogin = async () => {
                     title: `Welcome back, ${user.first_name}!`
                 });
             }
-
-            if (requiresEmailVerification) {
-                await router.push('/student/profile');
-                Swal.fire({
-                    icon: 'info',
-                    title: 'Verify your email',
-                    text: 'Please verify your email first before scanning an answer sheet.',
-                    confirmButtonColor: '#10b981'
-                });
-            } else {
-                await router.push(targetPath);
-            }
+            await router.push(targetPath);
         } else {
             console.error('Unknown role encountered:', user.role);
             // Fallback: If role is unknown, maybe they shouldn't be here
@@ -148,7 +123,7 @@ const handleLogin = async () => {
             Swal.fire({
                 icon: 'warning',
                 title: 'Access Restricted',
-                text: 'Your account role is not recognized by the system.'
+                text: 'This account role does not have an available user interface in the system.'
             });
         }
 
