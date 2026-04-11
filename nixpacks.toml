@@ -1,0 +1,5 @@
+[phases.setup]
+nixPkgs = ["...", "python3", "python311Packages.pip", "zbar"]
+
+[phases.install]
+cmds = ["...", "pip install -r python/requirements.txt"]
