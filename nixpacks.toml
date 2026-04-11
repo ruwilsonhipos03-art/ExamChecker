@@ -1,9 +1,0 @@
-[phases.setup]
-# "..." keeps the default Laravel/PHP packages
-# We add "python3" and any system libs your script needs (like OpenCV/OpenSSL)
-nixPkgs = ["...", "python3"]
-
-[phases.install]
-# If your python script needs libraries (like opencv or numpy), 
-# this will install them from your requirements.txt
-cmds = ["...", "pip install -r python/requirements.txt"]
