@@ -1,5 +1,15 @@
 [phases.setup]
+<<<<<<< HEAD
 nixPkgs = ["...", "python3", "python311Packages.pip", "zbar"]
 
 [phases.install]
+=======
+# "..." keeps the default Laravel/PHP packages
+# We add "python3" and any system libs your script needs (like OpenCV/OpenSSL)
+nixPkgs = ["...", "python3"]
+
+[phases.install]
+# If your python script needs libraries (like opencv or numpy), 
+# this will install them from your requirements.txt
+>>>>>>> 7217accc8cc9214db231cadaaaece344a9b76760
 cmds = ["...", "pip install -r python/requirements.txt"]
