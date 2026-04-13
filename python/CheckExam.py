@@ -4,7 +4,10 @@ import sys
 import os
 import json
 import traceback
-from pyzbar.pyzbar import decode
+try:
+    from pyzbar.pyzbar import decode as decode_pyzbar
+except Exception:
+    decode_pyzbar = None
 
 
 # ---------------- QR FALLBACK ----------------
@@ -39,7 +42,7 @@ def detect_bubble_grid(img, filename):
             int(0.02 * w):int(0.35 * w)
         ]
 
-        codes = decode(qr_crop)
+        codes = decode_pyzbar(qr_crop) if decode_pyzbar else []
         if codes:
             qr_data = codes[0].data.decode("utf-8").strip()
         else:

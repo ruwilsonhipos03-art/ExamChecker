@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["...", "python3", "zbar"]
+nixPkgs = ["...", "python3"]
 
 [phases.install]
-cmds = ["...", "python3 -m pip install --no-cache-dir -r python/requirements.txt"]
+cmds = ["...", "python3 -m ensurepip --upgrade || true", "python3 -m pip install --upgrade pip setuptools wheel", "python3 -m pip install --no-cache-dir -r python/requirements.txt"]
