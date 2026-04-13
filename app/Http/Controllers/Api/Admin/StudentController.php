@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendStudentScheduleEmail;
 use App\Models\Exam;
 use App\Models\ExamSchedule;
 use App\Models\Program;
@@ -15,7 +16,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class StudentController extends Controller
 {
@@ -213,45 +213,23 @@ class StudentController extends Controller
                 ];
             });
 
-            $schedule = $payload['schedule'];
-            $mailWarning = null;
-
-            try {
-                Mail::raw(
-                    "Hello {$payload['first_name']},\n\n"
-                    . "Your entrance exam schedule has been confirmed.\n\n"
-                    . "Student Number: {$payload['student_number']}\n"
-                    . "Selected Program: {$payload['program_name']}\n"
-                    . "Exam: {$schedule['exam_title']}\n"
-                    . "Exam Type: {$schedule['exam_type']}\n"
-                    . "Date: {$schedule['date']}\n"
-                    . "Time: {$schedule['time']}\n"
-                    . "Location: {$schedule['location']}\n\n"
-                    . "Please keep this information for your reference.",
-                    function ($message) use ($payload) {
-                        $message->to($payload['email'])->subject('Entrance Exam Schedule Details');
-                    }
-                );
-            } catch (\Throwable $mailException) {
-                Log::warning('Student account created but email delivery failed.', [
-                    'user_id' => $payload['user_id'],
-                    'email' => $payload['email'],
-                    'error' => $mailException->getMessage(),
-                ]);
-                $mailWarning = 'Student account created, but schedule email could not be sent.';
-            }
+            SendStudentScheduleEmail::dispatch($payload);
 
             return response()->json([
                 'status' => 'success',
-                'message' => $mailWarning ?? 'Student account created successfully.',
+                'message' => 'Student account created successfully. Schedule email has been queued.',
                 'data' => [
                     'user_id' => $payload['user_id'],
                     'student_number' => $payload['student_number'],
                     'schedule' => $payload['schedule'],
-                    'email_sent' => $mailWarning === null,
+                    'email_queued' => true,
                 ],
             ], 201);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            Log::error('Student account creation failed.', [
+                'error' => $e->getMessage(),
+            ]);
+
             return response()->json([
                 'status' => 'error',
                 'message' => $e->getMessage(),
