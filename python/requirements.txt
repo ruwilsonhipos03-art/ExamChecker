@@ -1,6 +1,3 @@
 opencv-python-headless
 numpy
-<<<<<<< HEAD
 pyzbar
-=======
->>>>>>> 7217accc8cc9214db231cadaaaece344a9b76760
